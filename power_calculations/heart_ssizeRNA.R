@@ -5,10 +5,10 @@ library(data.table)
 library(stringr)
 
 # Read in GTEx metadata
-meta <- read.delim("/scratch/mjpete11/power_calculations/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt",header = TRUE, sep = "\t")
+meta <- read.delim("/scratch/mjpete11/power_calculations/data/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt",header = TRUE, sep = "\t")
 
 # Read in file with sex phenotypes
-sex_meta <- read.delim("/scratch/mjpete11/power_calculations/GTEx_Analysis_v8_Annotations_SubjectPhenotypesDS.txt",header = TRUE, sep = "\t")
+sex_meta <- read.delim("/scratch/mjpete11/power_calculations/data/GTEx_Analysis_v8_Annotations_SubjectPhenotypesDS.txt",header = TRUE, sep = "\t")
 
 # Get list of female IDs
 fems <- sex_meta$SUBJID[which(sex_meta$SEX==2)]
@@ -43,7 +43,7 @@ meta2 <- meta2[which(meta2$SMRIN > 8.0),]
 #write.csv(subcounts, "/scratch/mjpete11/power_calculations/heart_counts.csv")
 
 # Read in the heart sample count data only
-subcounts <- data.frame(fread("/scratch/mjpete11/power_calculations/heart_counts.csv"))
+subcounts <- data.frame(fread("/scratch/mjpete11/power_calculations/output/heart_counts.csv"))
 
 # Replace . to - in colnames
 colnames(subcounts) <- str_replace_all(colnames(subcounts), pattern="\\.","-")
@@ -51,8 +51,9 @@ colnames(subcounts) <- str_replace_all(colnames(subcounts), pattern="\\.","-")
 # Convert df to matrix
 subcounts <- data.matrix(subcounts)
 
-# Filter zero counts genes
-subcounts <- subcounts[rowSums(subcounts) > 0,]
+# Keep only genes that have > 0 in at least 10 samples
+keep <- apply(subcounts, 1, function(x) sum(x != 0))
+subcounts <- subcounts[which(keep >= 10),]
 
 # Average read count for each gene
 mu <- apply(subcounts, 1, mean)
@@ -63,20 +64,6 @@ meta3 <- meta2[meta2$SAMPID %in% select_samples,]
 
 # Drop first two cols from count matrix
 subcounts <- subcounts[,3:ncol(subcounts)]
-
-# Dispersion for each gene
-d <- DGEList(subcounts)
-d <- calcNormFactors(d)
-d <- estimateCommonDisp(d)
-d <- estimateTagwiseDisp(d)
-disp <- d$tagwise.dispersion
-
-# Estimate sample size 
-set.seed(2022)
-pdf("heart_power_calc.pdf")
-size <- ssizeRNA_vary(nGenes = 50, pi0 = 0.2, m = 50, mu = mu, disp = disp,
-					  fc = 2, fdr = 0.05, power = 0.8, maxN = 15, replace = FALSE)
-dev.off()
 
 # Differential expression between male and female samples
 sex_groups <- factor(meta3$sex)
@@ -91,19 +78,20 @@ res <- topTable(fit, adjust.method="fdr", number=nrow(fit))
 res2 <- subset(res, adj.P.Val < 0.05)
 
 # Number of significantly DE genes after multiple test correction
-nrow(res2) # 342
+nrow(res2) # 354
 
 # Total number of genes tested with expression > 0 in at least 1 sample
-nrow(subcounts) # 51,464
+nrow(subcounts) # 42,489 
 
 # Proportion of genes expected to be DE between healthy fe/male heart tissue
-342/51464 #0.0067
+342/51464 # 0.006645
 
 # Dispersion for each gene in sex-stratified heart samples
 d3 <- calcNormFactors(d2)
 d3 <- estimateCommonDisp(d3)
 d3 <- estimateTagwiseDisp(d3)
 disp2 <- d3$tagwise.dispersion
+disp2
 
 # Average read count for each gene
 mu2 <- apply(subcounts, 1, mean)
@@ -111,6 +99,6 @@ mu2 <- apply(subcounts, 1, mean)
 # Estimate sample size 
 set.seed(2022)
 pdf("sex_heart_power_calc.pdf")
-size2 <- ssizeRNA_vary(nGenes=51500, pi0=0.007, m=50, mu=mu2, disp=disp2,
-	   				   fc=2, fdr=0.05, power=0.8, maxN=15, replace=TRUE)
+size2 <- ssizeRNA_vary(nGenes=42489, pi0=0.006, m=50, mu=mu2, disp=disp2,
+	   				   fc=2, fdr=0.05, power=0.8, maxN=150, replace=TRUE)
 dev.off()
