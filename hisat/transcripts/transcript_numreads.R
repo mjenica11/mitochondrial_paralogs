@@ -1,7 +1,10 @@
 # Extract the SLC25 transcripts from the trans_number_reads.count file
 
-# Read in the file counting the number of reads mapped to each transcript
+# Read in the files counting the number of reads mapped to each transcript
 dat <- read.csv("trans_number_reads.count", sep="\t", header=FALSE)
+union_dat <- read.csv("union_trans_number_reads.count", sep="\t", header=FALSE)
+strict_dat <- read.csv("strict_trans_number_reads.count", sep="\t", header=FALSE)
+nonempty_dat <- read.csv("nonempty_trans_number_reads.count", sep="\t", header=FALSE)
 
 # Names of the SLC25 transcripts present 
 SLC25_genes  <- c("SLC25A33", "SLC25A34", "SLC25A24", "SLC25A44", "SLC25A12",
@@ -35,12 +38,24 @@ RefSeq <-c("rna-NM_032315.3", "rna-NM_207348.3", "rna-NM_013386.5", "rna-NM_0146
 
 # Subset the rows where the SLC25 transcripts are present
 dat2 <- dat[is.element(dat$V1, RefSeq),]
+union_dat2 <- union_dat[is.element(union_dat$V1, RefSeq),]
+strict_dat2 <- strict_dat[is.element(strict_dat$V1, RefSeq),]
+nonempty_dat2 <- nonempty_dat[is.element(nonempty_dat$V1, RefSeq),]
 
 # Add a column with the SLC25 names
 dat3 <- cbind(data.frame(gene=SLC25_genes), dat2)
+union_dat3 <- cbind(data.frame(gene=SLC25_genes), union_dat2)
+strict_dat3 <- cbind(data.frame(gene=SLC25_genes), strict_dat2)
+nonempty_dat3 <- cbind(data.frame(gene=SLC25_genes), nonempty_dat2)
 
 # Rename last two columns
 colnames(dat3)[2:3] <- c("transcript_ID", "NumReads")
+colnames(union_dat3)[2:3] <- c("transcript_ID", "NumReads")
+colnames(strict_dat3)[2:3] <- c("transcript_ID", "NumReads")
+colnames(nonempty_dat3)[2:3] <- c("transcript_ID", "NumReads")
 
 # Write to file
 write.csv(dat3, "SLC25_transcript_num_reads.csv")
+write.csv(union_dat3, "union_SLC25_transcript_num_reads.csv")
+write.csv(strict_dat3, "strict_SLC25_transcript_num_reads.csv")
+write.csv(nonempty_dat3, "nonempty_SLC25_transcript_num_reads.csv")
