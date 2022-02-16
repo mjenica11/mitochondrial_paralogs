@@ -4,7 +4,7 @@
 #SBATCH -o sbatch_test.out
 #SBATCH -p htc
 
-# Manually downloaded RefSeq transcripts from:
+# Manually downloaded RefSeq genome from:
 # https://www.ncbi.nlm.nih.gov/genome/guide/human/
 
 # Build HGFM index
