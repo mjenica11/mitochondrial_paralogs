@@ -62,7 +62,7 @@ head(dat2)
 # Instantiate vector of 0s equal to the number of SLC25 family members present
 expected <- rep(0, nrow(dat2))
 
-# Insert 200 at the index for the transcript that the reads were  simulated from (SLC25A4) 
+# Insert 1000 at the index for the transcript that the reads were  simulated from (SLC25A4) 
 which(dat2$RefSeq_ID %in% "NM_001151.4") #9
 expected[9] <- 1000
 expected
@@ -72,4 +72,11 @@ dat2$simulated_fragments <- expected
 dat2[9:20,]
 
 # Write to file
-write.csv(dat2, "output/1000_reads_SLC25_transcripts.csv")
+#write.csv(dat2, "output/1000_reads_SLC25A4_transcripts.csv")
+
+# Confusion matrix
+predicted <- as.factor(dat2$simulated_fragments)
+observed <- as.factor(dat2$NumReads)
+tab <- table(predicted, observed)
+prop.table(predicted, observed)
+write.csv(tab, "output/test_table.csv")
