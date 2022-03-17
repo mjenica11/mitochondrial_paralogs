@@ -6,13 +6,13 @@ library(Biostrings)
 library(VennDiagram)
 
 # Import data
-query_SLC25A1 <- readAAMultipleAlignment(filepath="/scratch/mjpete11/phylogenies/fastas/copy_SLC25A1_alignment.fasta",format="fasta")
+#query_SLC25A1 <- readAAMultipleAlignment(filepath="/scratch/mjpete11/phylogenies/fastas/copy_SLC25A1_alignment.fasta",format="fasta")
 
 query_SLC25A2 <- readAAMultipleAlignment(filepath="/scratch/mjpete11/phylogenies/fastas/copy_SLC25A2_alignment.fasta",
 										 format="fasta")
 
-query_SLC25A3 <- readAAMultipleAlignment(filepath="/scratch/mjpete11/phylogenies/fastas/copy_SLC25A3_alignment.fasta",
-										 format="fasta")
+#query_SLC25A3 <- readAAMultipleAlignment(filepath="/scratch/mjpete11/phylogenies/fastas/copy_SLC25A3_alignment.fasta",
+#										 format="fasta")
 
 # Venn diagram
 venn.diagram(
@@ -29,37 +29,44 @@ venn.diagram(
    lwd = 0.5)
 
 # Convert alignment object to phyDat object
-query_SLC25A1 <- as.phyDat(query_SLC25A1)
 query_SLC25A2 <- as.phyDat(query_SLC25A2)
-query_SLC25A3 <- as.phyDat(query_SLC25A3)
 
 # Calculate distance matrix with Blosum62 matrix
-dist1 <- dist.ml(query_SLC25A1, model="Blosum62")
-dist2 <- dist.ml(query_SLC25A2, model="Blosum62")
-dist3 <- dist.ml(query_SLC25A3, model="Blosum62")
+dist_obj <- dist.ml(query_SLC25A2, model="Blosum62")
+
+# Write distance matrix to file
+write.nexus.dist(dist_obj, "distance_matrix.csv", upper=FALSE, diag=FALSE)
 
 # Make tree with Neighbor-Joining
-tree1 <- NJ(dist1)
-tree2 <- NJ(dist2)
-tree3 <- NJ(dist3)
+tree <- NJ(dist_obj)
 
-# Make cladogram with phangorn package
-#pdf("cladogram.pdf")
-#plot.phylo(tree, type="cladogram", use.edge.length=FALSE, no.margin=TRUE)
-#dev.off()
-
-# Make cladogram with ggtree package
-pdf("SLC25A1_cladogram.pdf")
-plt1 <- ggtree(tree1, branch.length='none', layout='circular') 
-plt1 + geom_tiplab(geom="text") 
+# Cladogram grouped by larger subtype
+pdf("cladogram.pdf")
+plt <- ggtree(tree, branch.length='none', layout='circular') +
+       geom_tiplab(size=3) +
+	   geom_highlight(node=62, fill="orange", alpha=.6) +
+	   geom_highlight(node=79, fill="purple", alpha=.6) +
+	   geom_highlight(node=78, fill="blue", alpha=.6) +
+	   geom_highlight(node=72, fill="deeppink1", alpha=.6) +
+	   geom_highlight(node=57, fill="deeppink2", alpha=.6) +
+	   geom_highlight(node=65, fill="deeppink3", alpha=.6) +
+#	   geom_text2(aes(subset=!istip, label=node), hjust=-.3, size=2) +
+	   theme(plot.margin=unit(c(15,15,15,15), "mm"))
+plt
 dev.off()
 
+# Cladogram grouped by more specific subtypes
 pdf("SLC25A2_cladogram.pdf")
-plt2 <- ggtree(tree2, branch.length='none', layout='circular') 
-plt2 + geom_tiplab(geom="text") 
-dev.off()
-
-pdf("SLC25A3_cladogram.pdf")
-plt3 <- ggtree(tree3, branch.length='none', layout='circular') 
-plt3 + geom_tiplab(geom="text") 
+plt2 <- ggtree(tree, branch.length='none', layout='circular') +
+        geom_tiplab(size=3) +
+		geom_highlight(node=98, fill="darkgreen", alpha=.6) +
+		geom_highlight(node=78, fill="green", alpha=.6) +
+		geom_highlight(node=87, fill="blue", alpha=.6) +
+		geom_highlight(node=96, fill="purple", alpha=.6) +
+		geom_highlight(node=101, fill="hotpink", alpha=.6) +
+		geom_highlight(node=90, fill="yellow", alpha=.6) +
+		geom_highlight(node=102, fill="orange", alpha=.6) +
+#		geom_text2(aes(subset=!istip, label=node), hjust=-.3, size=2) +
+		theme(plot.margin=unit(c(15,15,15,15), "mm"))
+plt2
 dev.off()
