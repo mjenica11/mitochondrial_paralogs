@@ -31,11 +31,7 @@ RefSeq <-c("NM_032315.3", "NM_207348.3", "NM_013386.5", "NM_014655.4",
 		   "NM_001636.4", "NM_001012755.5", "NM_145305.3", "NM_001152.5",
 		   "NM_001282195.2")
 
-# Dataframe of just SLC25 read counts
-dat <- lapply(res, function(x) subset(x, x$RefSeq_ID %in% RefSeq))
-lapply(dat, nrow)
-
-# Append column with the HGNC names of the SLC25 transcripts for readability
+# HGNC names of SLC25 paralogs 
 SLC25_genes  <- c("SLC25A33", "SLC25A34", "SLC25A24", "SLC25A44", "SLC25A12",
 				  "SLC25A38", "SLC25A20", "SLC25A26", "SLC25A36", "SLC25A31",
 				  "SLC25A7", "SLC25A4", "SLC25A46", "SLC25A48", "SLC25A2",
@@ -48,9 +44,32 @@ SLC25_genes  <- c("SLC25A33", "SLC25A34", "SLC25A24", "SLC25A44", "SLC25A12",
 				  "SLC25A18", "SLC25A1", "SLC25A17", "SLC25A6", "SLC25A53",
 				  "SLC25A43", "SLC25A5", "SLC25A14")
 
+# List of genes that are not paralogs as negative controls
+not_paralogs <- c("NR_001564.2","NM_001385731.1", "NM_014421.3", "NM_030636.3",
+				  "NM_033082.4", "NM_019598.3", "NM_001271885.2", "NM_001077503.2", 
+				  "NM_001281.3", "NM_003489.4")
+
+not_paralog_names <- c("XIST", "CSN2", "DKK2", "EEPD1", "SARNP", "YLMP1", "AAGAB",
+					   "TAC4", "TBCB", "NRIP1")
+
+# Combine list of SLC25 genes and non-paralog controls
+all_RefSeq <- c(RefSeq, not_paralogs)
+all_genes <- c(SLC25_genes, not_paralog_names)
+
+# Dataframe of genes that are not members of the SLC25 family
+'%!in%' <- Negate('%in%')
+not <- lapply(res, function(x) subset(x, x$RefSeq_ID %!in% RefSeq))
+
+# Check if any rows have counts > 0
+#tmp <- lapply(not, function(x) print(x[x$NumReads > 0])) # None
+
+# Dataframe of SLC25 read counts and non-paralogous controls
+dat <- lapply(res, function(x) subset(x, x$RefSeq_ID %in% all_RefSeq))
+lapply(dat, nrow)
+
 # Create a dataframe with the HGNC names and RefSeq IDs
 # Add a column with the HGNC gene names
-temp <- data.frame(HGNC_names = SLC25_genes, RefSeq_ID = RefSeq) 
+temp <- data.frame(HGNC_names = all_genes, RefSeq_ID = all_RefSeq) 
 
 # Bind the name dataframe to the quant.sf dataframe and merge by "RefSeq_ID"
 # to make sure the rows bind in the same order
@@ -87,11 +106,24 @@ slice_dataframes <- function(vec, name){
 df_lst <- Map(slice_dataframes, vec = seq(1:53), name = genes)
 df_lst
 
+# Subset non-paralogs from each df in list
+slice2 <- function(vec) {
+	dy <- dat3[[vec]][which(dat3[[vec]]$HGNC_names %in% not_paralog_names),]
+	return(dy)
+}
+df_lst2 <- Map(slice2, vec = seq(1:53))
+
+# Do any of the non-paralogous genes have counts > 0?
+res2 <- lapply(df_lst2, function(x) x[which(x$NumReads > 0),]) # No
+
 # Merge dataframes
 cols <- c("HGNC_names", "RefSeq_ID", "Length", "EffectiveLength", "NumReads", "TPM", "simulated_fragments")
 dat4 <- Reduce(function(...) merge(..., all = TRUE), df_lst)
 head(dat4)
 tail(dat4)
+
+# Append one of the non-paralogous dataframes to the list of paralogous genes
+tmp <- rbind(dat4, res2[[1]])
 
 # Add a column with the true positive rate
 dat4$true_positive <- dat4$NumReads/dat4$simulated_fragments * 100
