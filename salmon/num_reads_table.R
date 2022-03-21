@@ -123,12 +123,12 @@ head(dat4)
 tail(dat4)
 
 # Append one of the non-paralogous dataframes to the list of paralogous genes
-tmp <- rbind(dat4, res2[[1]])
+dat4 <- rbind(dat4, df_lst2[[1]])
 
 # Add a column with the true positive rate
 dat4$true_positive <- dat4$NumReads/dat4$simulated_fragments * 100
-min(dat4$true_positive) 
-max(dat4$true_positive) 
+min(dat4$true_positive) # 0
+max(dat4$true_positive) # 91.6
 
 # Write to file
 write.csv(dat4, "output/1000_reads_individual_transcripts.csv")
