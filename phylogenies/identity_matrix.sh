@@ -8,7 +8,7 @@ module purge
 source /home/mjpete11/.bashrc
 conda activate clustalo
 
-# align SLC25 DNA sequences with muscle
+# align SLC25 RNA sequences with muscle
 muscle -in HGNC_named_combined.fasta -clwstrictout aligned.clw
 
 # generate identity matrix
