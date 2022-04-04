@@ -12,3 +12,5 @@ do
 	count=$(printf $i)
 	fastqc -o fastqc_results SRR7426${count}.fastq
 done
+
+multiqc .
