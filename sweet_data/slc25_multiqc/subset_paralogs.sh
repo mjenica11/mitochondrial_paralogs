@@ -5,6 +5,7 @@ module purge
 source /home/mjpete11/.bashrc
 conda activate fastqc_environment
 
+# TEST 
 # Subset reads that mapped to the SLC25 family 
 #awk -F "\t" '$3 ~ /NM_032315.3/ {print $0}' mapping_info.csv >SLC25A33_mapped.sam
 
@@ -21,7 +22,7 @@ conda activate fastqc_environment
 # Subset reads that mapped to the SLC25 family
 declare -a paralog=("NM_032315.3" "NM_207348.3" "NM_013386.5" "NM_014655.4" 
 					"NM_003705.5" "NM_017875.4" "NM_000387.6" "NM_173471.4"
-			    	"NM_00110464" "NM_031291.4" "NM_021833.5" "NM_001151.4"
+					"NM_00110464" "NM_031291.4" "NM_021833.5" "NM_001151.4"
 					"NM_138773.4" "NM_001349336.2" "NM_031947.4" "NM_001271641.2"
 					"NM_004277.5" "NM_018843.4" "NM_014251.3" "NM_016612.4"
 					"NM_030780.5" "NM_033412.4" "NM_001330988.2" "NM_152707.4"
