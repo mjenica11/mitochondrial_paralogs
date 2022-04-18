@@ -24,7 +24,7 @@ NM_001282195.2)
 # Define a list
 for file in {784..847}; do
 	for transcript in ${paralog[@]}; do
-		cat subset_sams/SRR7426${file}_mapping_info.csv | grep $transcript > \
+		cat subset_sams/SRR7426${file}_mapping_info.csv | grep $transcript >> \
 				mapped_reads/SRR7426${file}_mapped.sam
 	done
 done
