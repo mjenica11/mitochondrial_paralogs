@@ -22,8 +22,6 @@ NM_001636.4 NM_001012755.5 NM_145305.3 NM_001152.5
 NM_001282195.2)
 
 # Define a list
-declare -a paralog=(NM_207348.3)
-
 for file in {784..847}; do
 	for transcript in ${paralog[@]}; do
 		cat subset_sams/SRR7426${file}_mapping_info.csv | grep $transcript > \
@@ -31,6 +29,6 @@ for file in {784..847}; do
 	done
 done
 
-#for i in {784..847}; do
-#		fastqc -o fastqc_results mapped_reads/SRR7426${count}_mapped.sam
-#done
+for i in {784..847}; do
+		fastqc -o fastqc_results mapped_reads/SRR7426${count}_mapped.sam
+done
