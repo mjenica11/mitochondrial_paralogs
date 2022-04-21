@@ -13,20 +13,16 @@ FILEEND=Aligned.sortedByCoord.out.patched.md
 # Define a list
 BAMS=($(readlink -f $GTEX_PATH/*bam))
 item=${BAMS[0]}
+SLC25_BAMS=($(readlink -f slc25_reads/*bam))
+item2=${SLC25_BAMS[0]}
 
 for item in ${BAMS[@]}
 do
     outname=$(basename $item)
     outname=slc25_reads/${outname%.bam}_mapped.bam
-    samtools view -h -L slc25_genes.bed $item > $outname
+    samtools view -h -b slc25_genes.bed $item > $outname
+	samtools index $item2
+	fastqc -o fastqc_results $item2
 done
 
-# FASTQC + MUTLIQC on the BAM files subset to just reads that map to slc25 genes
-SUBSET_BAMS=($(readlink -f /scratch/mjpete11/GTEx/liver/slc25_multiqc/slc25_reads/*bam))
-
-for file in ${SUBSET_BAMS[@]}
-do
-	fastqc -o fastqc_results $file 
-done
-
-multiqc .
+multiqc fastqc_results
