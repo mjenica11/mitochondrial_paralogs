@@ -20,7 +20,6 @@ for item in ${BAMS[@]}
 do
     outname=$(basename $item)
     outname=slc25_reads/${outname%.bam}.sam
-    outname=slc25_reads/${outname%.bam}_mapped.bam
     samtools view -h $item chr1:9539465-9585173 chr1:15736258-15741392 \
 			chr1:108134043-108200343 chr1:156194104-156212796 \
 			chr2:171783405-171894244 chr3:39383370-39397351 \
@@ -48,8 +47,6 @@ do
 			chrX:1386152-1392113 chrX:104099214-104157009 \
 			chrX:119399336-119454478 chrX:119468444-119471396 \
 			chrX:130339919-130373357 > $outname
-    samtools view -h -b $item slc25_genes.bed > $outname
-	samtools index $item2
 done
 
 for item2 in ${SLC25_SAMS[@]} 
