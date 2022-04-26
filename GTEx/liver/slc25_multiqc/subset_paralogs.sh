@@ -9,24 +9,18 @@ conda activate data_science
 # Path
 GTEX_PATH=/data/CEM/shared/controlled_access/GTEX/RNA/liver/bam
 FILEEND=Aligned.sortedByCoord.out.patched.md
-#BEDFILE=/scratch/mjpete11/GTEx/liver/slc25_multiqc/slc25_genes.bed
-
-# TEMP
-#BAMS=(/data/CEM/shared/controlled_access/GTEX/RNA/liver/bam/GTEX-ZYY3-0626-SM-5NQ6W.Aligned.sortedByCoord.out.patched.md.bam
-#	/data/CEM/shared/controlled_access/GTEX/RNA/liver/bam/GTEX-ZF29-2026-SM-DNZYW.Aligned.sortedByCoord.out.patched.md.bam
-#	/data/CEM/shared/controlled_access/GTEX/RNA/liver/bam/GTEX-YFC4-1526-SM-5IFJS.Aligned.sortedByCoord.out.patched.md.bam)
 
 # Define a list
 BAMS=($(readlink -f $GTEX_PATH/*bam))
 item=${BAMS[0]}
-SLC25_BAMS=($(readlink -f slc25_reads/*bam))
-item2=${SLC25_BAMS[0]}
+SLC25_SAMS=($(readlink -f slc25_reads/*sam))
+item2=${SLC25_SAMS[0]}
 
 for item in ${BAMS[@]}
 do
     outname=$(basename $item)
     outname=slc25_reads/${outname%.bam}.sam
-#    outname=slc25_reads/${outname%.bam}_mapped.bam
+    outname=slc25_reads/${outname%.bam}_mapped.bam
     samtools view -h $item chr1:9539465-9585173 chr1:15736258-15741392 \
 			chr1:108134043-108200343 chr1:156194104-156212796 \
 			chr2:171783405-171894244 chr3:39383370-39397351 \
@@ -54,8 +48,12 @@ do
 			chrX:1386152-1392113 chrX:104099214-104157009 \
 			chrX:119399336-119454478 chrX:119468444-119471396 \
 			chrX:130339919-130373357 > $outname
-#    samtools view -h -b $item slc25_genes.bed > $outname
-#	samtools index $item2
+    samtools view -h -b $item slc25_genes.bed > $outname
+	samtools index $item2
+done
+
+for item2 in ${SLC25_SAMS[@]} 
+do
 	fastqc -o fastqc_results $item2
 done
 
