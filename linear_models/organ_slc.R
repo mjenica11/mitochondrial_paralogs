@@ -44,11 +44,30 @@ sub_df[1:5,1:5]
 # Read in sample attributes files
 file2 <- read.csv("GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt", sep="\t")
 
-# Subset heart left ventricl and liver samples
-vec <- c("Heart - Left Ventricle", "Liver")
-file3 <- file2[file2$SMTSD %in% vec, ]
+# Subset heart left ventricl and liver samples into two separate dfs
+heart <- file2[file2$SMTSD %in% "Heart - Left Ventricle", ]
+liver <- file2[file2$SMTSD %in% "Liver", ]
 
 # Subset the SLC25 gene count df by the sample IDs that match the IDs in file3 df
-df3 <- sub_df[,file3$SAMPID]
+library(tidyverse)
+heart2 <- sub_df %>% select(contains(heart$SAMPID))
+liver2 <- sub_df %>% select(contains(liver$SAMPID))
 
+# Append the gene ensemble ID and common name
+heart3 <- cbind('gene'=sub_df$'Description', heart)
+liver3 <- cbind('gene'=sub_df$'Description', liver)
+
+# Add a columns with the organ in each df
+heart3$organ <- 'heart' 
+liver3$organ <- 'liver' 
+
+###ERROR: arguments imply differing number of rows: 49, 689
+# Combine into one df
+organs <- cbind(heart3, liver3)
+
+# Design matrix
+organs$organ <- as.factor(organs$organ)
+mat <- model.matrix(~organ, data=organs)
+
+# Linear model: SLC ~ organ
 
