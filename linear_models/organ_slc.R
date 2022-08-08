@@ -2,6 +2,7 @@
 
 # Libraries
 library(limma)
+library(edgeR)
 library(data.table)
 
 # Read in GTEx manifest
@@ -44,7 +45,7 @@ sub_df[1:5,1:5]
 # Read in sample attributes files
 file2 <- read.csv("GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt", sep="\t")
 
-# Subset heart left ventricl and liver samples into two separate dfs
+# Subset heart left ventricle and liver samples into two separate dfs
 heart <- file2[file2$SMTSD %in% "Heart - Left Ventricle", ]
 liver <- file2[file2$SMTSD %in% "Liver", ]
 
@@ -54,20 +55,37 @@ heart2 <- sub_df %>% select(contains(heart$SAMPID))
 liver2 <- sub_df %>% select(contains(liver$SAMPID))
 
 # Append the gene ensemble ID and common name
-heart3 <- cbind('gene'=sub_df$'Description', heart)
-liver3 <- cbind('gene'=sub_df$'Description', liver)
+heart3 <- cbind('gene'=sub_df$'Description', heart2)
+liver3 <- cbind('gene'=sub_df$'Description', liver2)
 
 # Add a columns with the organ in each df
 heart3$organ <- 'heart' 
 liver3$organ <- 'liver' 
 
-###ERROR: arguments imply differing number of rows: 49, 689
-# Combine into one df
-organs <- cbind(heart3, liver3)
+# Reshape dataframe so it can be converted to a design matrix object
+library(reshape)
+heart4 <- melt(data = heart3,
+			   id.vars = c("gene", "organ"),
+			   measure.vars = colnames(heart3)[3:ncol(heart3)-1],
+			   variable.name = "samples",
+			   value.name = "counts")
 
-# Design matrix
-organs$organ <- as.factor(organs$organ)
-mat <- model.matrix(~organ, data=organs)
+liver4 <- melt(data = liver3,
+			   id.vars = c("gene", "organ"),
+			   measure.vars = colnames(liver3)[3:ncol(liver3)-1],
+			   variable.name = "samples",
+			   value.name = "counts")
+
+# Combine into one df
+organs <- rbind(heart4, liver4)
+
+# Factor response variable
+as.factor(organs$organ)
 
 # Linear model: SLC ~ organ
+model <- lm(value ~ 0 + organ, organs)
+res <- summary(model)
 
+sink(paste("/scratch/mjpete11/linear_models/results/","SLC_organ.csv",sep=""))
+print(res)
+sink()
