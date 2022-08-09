@@ -4,6 +4,8 @@
 library(limma)
 library(edgeR)
 library(data.table)
+library(tidyverse)
+library(reshape)
 
 # Read in GTEx manifest
 manifest <- read.csv("sample.tsv", header=TRUE, sep = "\t")
@@ -38,10 +40,6 @@ setdiff(SLC, sub_df$'Description')
 # "SLC25A7"  "SLC25A8"  "SLC25A9"  "SLC25A49" "SLC25A50"
 # I searched for the ENSG ID but I couldn't find them
 
-# Make a df of the sample, gene name, counts, and organ
-head(df2)
-sub_df[1:5,1:5]
-
 # Read in sample attributes files
 file2 <- read.csv("GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt", sep="\t")
 
@@ -50,7 +48,6 @@ heart <- file2[file2$SMTSD %in% "Heart - Left Ventricle", ]
 liver <- file2[file2$SMTSD %in% "Liver", ]
 
 # Subset the SLC25 gene count df by the sample IDs that match the IDs in file3 df
-library(tidyverse)
 heart2 <- sub_df %>% select(contains(heart$SAMPID))
 liver2 <- sub_df %>% select(contains(liver$SAMPID))
 
@@ -63,7 +60,6 @@ heart3$organ <- 'heart'
 liver3$organ <- 'liver' 
 
 # Reshape dataframe so it can be converted to a design matrix object
-library(reshape)
 heart4 <- melt(data = heart3,
 			   id.vars = c("gene", "organ"),
 			   measure.vars = colnames(heart3)[3:ncol(heart3)-1],
@@ -80,12 +76,70 @@ liver4 <- melt(data = liver3,
 organs <- rbind(heart4, liver4)
 
 # Factor response variable
-as.factor(organs$organ)
+organs$organ <- as.factor(organs$organ)
 
-# Linear model: SLC ~ organ
+# Linear model: All SLC ~ organ
 model <- lm(value ~ 0 + organ, organs)
 res <- summary(model)
 
-sink(paste("/scratch/mjpete11/linear_models/results/","SLC_organ.csv",sep=""))
-print(res)
+# Write linear model results to file
+#sink(paste("/scratch/mjpete11/linear_models/results/","SLC_organ.csv",sep=""))
+#print(res)
+#sink()
+
+# Function to make linear model of each SLC ~ organ individually
+# List of subset dfs
+SLC_dfs <- c("A1", "A2", "A3", "A4", "A5", "A6", "A7", "A10",
+			 "A11", "A12", "A13", "A14", "A15", "A16", "A17", "A18", "A19",
+			 "A20", "A21", "A22", "A23", "A24", "A25", "A26", "A27", "A28",
+			 "A29", "A30", "A31", "A32", "A33", "A34", "A35", "A36", "A37",
+			 "A38", "A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46",
+			 "A47", "A48", "A51", "A52", "A53")
+
+SLCs <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6", 
+		 "SLC25A7", "SLC25A10", "SLC25A11", "SLC25A12", 
+		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
+		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
+		 "SLC25A23", "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
+		 "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A31", "SLC25A32", 
+		 "SLC25A33", "SLC25A34", "SLC25A35", "SLC25A36", "SLC25A37", 
+		 "SLC25A38", "SLC25A39", "SLC25A40", "SLC25A41", "SLC25A42", 
+		 "SLC25A43", "SLC25A44", "SLC25A45", "SLC25A46", "SLC25A47",
+		 "SLC25A48", "SLC25A51", "SLC25A52", "SLC25A53")
+
+models <- sprintf("model%d",1:49)
+results <- sprintf("res%d",1:49)
+
+# Function
+linear_model <- function(var1, var2, var3, var4, var5){
+	var1 <- organs %>% filter(gene == var2)
+#	var3 <- lapply(var1, function(x) as.factor(x[["organ"]])) 
+#	var4 <- lm(value ~ 0 + organ, var3)
+#	var5 <- summary(var4)
+#	sink(paste("/scratch/mjpete11/linear_models/results/", paste0(var2,"_organ.csv"),sep=""))
+#	print(var5)
+#	sink()
+}
+obj <- Map(linear_model,var1=SLC_dfs, var2=SLCs, var3=SLC_dfs) 
+obj <- Map(linear_model,var1=SLC_dfs, var2=SLCs, var3=models, var4=results) 
+
+
+linear_model <- function(var1, var2, var3, var4, var5){
+	var1 <- organs %>% filter(gene == var2)
+	var4 <- lm(value ~ 0 + organ, var3)
+	var5 <- summary(var4)
+	sink(paste("/scratch/mjpete11/linear_models/results/", paste0(var2,"_organ.csv"),sep=""))
+	print(var5)
+	sink()
+}
+
+obj <- Map(linear_model,var1=SLC_dfs, var2=SLCs, var3=SLC_dfs, var4=models, var5=results) 
+
+# Subset one gene from the organ df
+A1 <- organs %>% filter(gene == "SLC25A3")
+model1 <- lm(value ~ 0 + organ, A1)
+res1 <- summary(model1)
+sink(paste("/scratch/mjpete11/linear_models/results/","SLC1_organ.csv",sep=""))
+print(res1)
 sink()
+
