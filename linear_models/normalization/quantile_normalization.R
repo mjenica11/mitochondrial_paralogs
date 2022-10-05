@@ -28,14 +28,17 @@ counts <- fread("/scratch/mjpete11/linear_models/data/combat_batch_adjusted_coun
 rownames(counts) <- counts$Name
 
 quantile_normalisation <- function(df){
+		 # Determine the ranks of each column from lowest to highest
 		 df_rank <- apply(df,2,rank,ties.method="min")
+	     # Sort the original matrix from lowest to highest
  		 df_sorted <- data.frame(apply(df, 2, sort))
+		 # Calculate the means
 	     df_mean <- apply(df_sorted, 1, mean)
-
+		 # Function to substitute the means into the ranked matrix
          index_to_mean <- function(my_index, my_mean){
 			    return(my_mean[my_index])
 	  }
-
+      # Substitute means into ranked matrix
 	  df_final <- apply(df_rank, 2, index_to_mean, my_mean=df_mean)
 	  rownames(df_final) <- rownames(df)
 	  return(df_final)
