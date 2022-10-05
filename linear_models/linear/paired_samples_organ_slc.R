@@ -152,35 +152,32 @@ organs$X <- NULL
 
 # Regress out effect of RIN and ischemic time and remove from the model 
 # before making the violin plots
-
+###### TEST ######
 # Subset one gene from the organ df
 A1 <- organs %>% filter(gene == "SLC25A1")
 dA1 <- distinct(na.omit(A1))
 # Double check that for each value in the subject ID column there is a 
 # corresponding heart and liver value in the organ column
-# e.g. How many unique values in organ for each value of subject ID after
-# subsetting by gene? Are any unique values not equal to 2?
 any(tapply(dA1$organ, dA1$SUBJID, function(x) length(unique(x))) != 2) #FALSE
-# Regress out the effect due to RIN and ischemic time
-model1 <- lm(value ~ organ + SMRIN + SMTSISCH, data=dA1)
-# Fit model
-m1 <- fitted(model1)
-# Returns the distribution that has the RIN and ischemic time covariated removed
-# e.g. Get the posterior distribution after integrating out the nuissance variables
-s1 <- summary(model1)$sigma;rnorm(length(m1),m1,s1)
-any(s1<0) # FALSE; can only supply positive values to rnorm() but resids can be negative
-# Add "corrected" values with covariates regressed out to perform t-test
-dA1$corrected <- s1
 # Are the number of rows divided by 2 equal to the number of unique subject IDs?
 nrow(dA1)/2==148 # TRUE
 
+# Regress out the effect due to RIN and ischemic time
+model1 <- lm(value ~ SMRIN + SMTSISCH, data=dA1)
+# Fit model
+dA1$fitted_vals <- fitted(model1)
+# Linear regression on organ
+model2 <- lm(value ~ organ, data=dA1, offset=fitted_vals)
+# Add residuals from second linear model to dataframs
+dA1$fitted_values <- fitted.values(model2)
+
 # Test violin jitter plot function
-p <- ggplot(dA1, aes(x = organ, y = corrected)) +
+p <- ggplot(dA1, aes(x = organ, y = fitted_values)) +
 	 geom_violin(aes(colour = organ)) +
 	 geom_jitter(aes(colour = organ))  +
-	 ylab("value") +
+	 ylab("fitted value") +
 	 xlab("organ") +
-	 ggtitle(paste0("Jitter plot of SLC25A1 expression between heart and liver")) +
+	 ggtitle(paste0("Jitter plot of SLC25A1 expression between heart and liver after 2SLS")) +
 	 stat_compare_means(method = "t.test") +
 	 stat_summary(fun.data = "mean_cl_boot", geom = "crossbar", colour = "red", width = 0.2)
 ggsave(paste0("SLC25A1_violin_plot.pdf"))
@@ -190,20 +187,21 @@ violin_plots <- function(GENE){
 			dat <- organs %>% filter(gene == GENE)
 			dat2 <- na.omit(dat)
 			dat3 <- distinct(na.omit(dat2))
-			any(tapply(dat3$organ, dat3$SUBJID, function(x) length(unique(x))) != 2) #FALSE
-			model1 <- lm(value ~ organ + SMRIN + SMTSISCH, data=dat3)
-			m1 <- fitted(model1)
-#			dat3$corrected <- residuals(model1) # If plotting the residuals
-			# Return distribution that has the nuissance variables regressed out
-			s1 <- summary(model1)$sigma;rnorm(length(m1),m1,s1)
-			dat3$corrected <- s1
-			nrow(dat3)/2==148 # TRUE
+			# Regress out effect of RIN and ischemic time on SLC
+			model1 <- lm(value ~ SMRIN + SMTSISCH, data=dat3)
+			# Add fitted values to dataframe
+			dat3$fitted_vals <- fitted(model1)
+			# Regress organ on SLC using previous fitted regression values as offset
+			model2 <- lm(value ~ organ, data=dat3, offset=fitted_vals)
+			# Add residuals from second linear model to dataframs
+			dat3$fitted_values <- fitted.values(model2)
+			# Violin plot
 			p <- ggplot(dat3, aes(x = organ, y = value)) +
 			geom_violin(aes(colour = organ)) +
 			geom_jitter(aes(colour = organ))  +
 			ylab("value") +
 			xlab("organ") +
-			ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver")) +
+			ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver after 2SLS")) +
 			stat_compare_means(method="t.test") +
 			stat_summary(fun.data = "mean_cl_boot", geom = "crossbar", colour = "red", width = 0.2)
 			ggsave(paste0(GENE, "_violin_plot.pdf"))
