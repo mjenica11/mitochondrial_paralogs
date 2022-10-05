@@ -163,8 +163,14 @@ dA1 <- distinct(na.omit(A1))
 any(tapply(dA1$organ, dA1$SUBJID, function(x) length(unique(x))) != 2) #FALSE
 # Regress out the effect due to RIN and ischemic time
 model1 <- lm(value ~ organ + SMRIN + SMTSISCH, data=dA1)
-# Extract residuals from model and add to dataframe
-dA1$corrected <- residuals(model1)
+# Fit model
+m1 <- fitted(model1)
+# Returns the distribution that has the RIN and ischemic time covariated removed
+# e.g. Get the posterior distribution after integrating out the nuissance variables
+s1 <- summary(model1)$sigma;rnorm(length(m1),m1,s1)
+any(s1<0) # FALSE; can only supply positive values to rnorm() but resids can be negative
+# Add "corrected" values with covariates regressed out to perform t-test
+dA1$corrected <- s1
 # Are the number of rows divided by 2 equal to the number of unique subject IDs?
 nrow(dA1)/2==148 # TRUE
 
@@ -186,7 +192,9 @@ violin_plots <- function(GENE){
 			dat3 <- distinct(na.omit(dat2))
 			any(tapply(dat3$organ, dat3$SUBJID, function(x) length(unique(x))) != 2) #FALSE
 			model1 <- lm(value ~ organ + SMRIN + SMTSISCH, data=dat3)
-			dat3$corrected <- residuals(model1)
+#			dat3$corrected <- residuals(model1) # If plotting the residuals
+			# Return distribution that has the nuissance variables regressed out
+			dat3$corrected <- summary(model1)$sigma;rnorm(length(m1),m1,s1)
 			nrow(dat3)/2==148 # TRUE
 			p <- ggplot(dat3, aes(x = organ, y = value)) +
 			geom_violin(aes(colour = organ)) +
