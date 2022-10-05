@@ -192,9 +192,11 @@ violin_plots <- function(GENE){
 			dat3 <- distinct(na.omit(dat2))
 			any(tapply(dat3$organ, dat3$SUBJID, function(x) length(unique(x))) != 2) #FALSE
 			model1 <- lm(value ~ organ + SMRIN + SMTSISCH, data=dat3)
+			m1 <- fitted(model1)
 #			dat3$corrected <- residuals(model1) # If plotting the residuals
 			# Return distribution that has the nuissance variables regressed out
-			dat3$corrected <- summary(model1)$sigma;rnorm(length(m1),m1,s1)
+			s1 <- summary(model1)$sigma;rnorm(length(m1),m1,s1)
+			dat3$corrected <- s1
 			nrow(dat3)/2==148 # TRUE
 			p <- ggplot(dat3, aes(x = organ, y = value)) +
 			geom_violin(aes(colour = organ)) +
