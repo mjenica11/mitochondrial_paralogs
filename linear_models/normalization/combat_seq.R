@@ -32,18 +32,33 @@ counts2$"Description" <- counts$"Description"
 # Move the gene names column to the front
 counts2 <- counts2 %>% select("Description", everything())
 
-# Median filter: Drop a gene if no individual has <5 counts
-median_filter <- function(DF, thresh){
-				DAT <- DF[!rowSums(DF<5), ]
+# Expression filter: Drop a gene if on average there are  <5 counts across all samples
+expression_filter <- function(DF, thresh){
+				DAT <- DF[!rowSums(DF<thresh), ]
 				return(DAT)
 }
 
-# Filter rows with a median of < 0 log(counts)
-# Skip first column when applying function since it contains the gene names
-counts3 <- median_filter(DF=counts2, thresh=5)
+# Apply function
+counts3 <- expression_filter(DF=counts2, thresh=5)
+
+# Did any SLCs drop out?
+SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
+		 "UCP1", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
+		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
+		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
+		 "SLC25A23", "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
+		 "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A31", "SLC25A32", 
+		 "SLC25A33", "SLC25A34", "SLC25A35", "SLC25A36", "SLC25A37", 
+		 "SLC25A38", "SLC25A39", "SLC25A40", "SLC25A41", "SLC25A42", 
+		 "SLC25A43", "SLC25A44", "SLC25A45", "SLC25A46", "SLC25A47",
+		 "SLC25A48", "MTCH1", "MTCH2", "SLC25A51", "SLC25A52", "SLC25A53")
+
+# Are any genes missing?
+setdiff(SLC, counts3$'Description') 
+# A2, A4, UCP1, A12, A26, A31, A33, A34, A38, A44, A46, S48
 
 # How many genes are left?
-nrow(counts3)
+nrow(counts3) # 44,621
 
 # None of the batch IDs should be unique
 length(unique(mani$SMGEBTCH))
