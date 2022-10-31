@@ -13,7 +13,7 @@ library(sva)
 manifest <- read.csv("/scratch/mjpete11/linear_models/data/sample.tsv", header=TRUE, sep = "\t")
 
 # Read in GTEx counts
-counts <- fread("/scratch/mjpete11/linear_models/data/combat_batch_adjusted_counts_zero_filtered.csv", sep=",")
+counts <- fread("/scratch/mjpete11/linear_models/data/combat_seq_filtered.csv", sep=",")
 
 SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
 		 "UCP1", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
@@ -62,4 +62,4 @@ new_data$"Description" <- counts$"Description"
 new_data <- new_data %>% select("Description", everything())
 
 # Write to file
-write.csv(new_data, "/scratch/mjpete11/linear_models/data/quantile_normalized_counts_zero_filtered.csv")
+write.csv(new_data, "/scratch/mjpete11/linear_models/data/quantile_normalized_combat_seq.csv")
