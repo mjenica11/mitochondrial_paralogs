@@ -123,7 +123,7 @@ colnames(organs)[4] <- "SAMPID"
 #write.table(organs, "/scratch/mjpete11/linear_models/data/organs_combat_seq.csv", sep=",")
 
 # Read organs df back in
-#organs <- read.csv("/scratch/mjpete11/linear_models/data/organs.csv", sep=",")
+organs <- read.csv("/scratch/mjpete11/linear_models/data/organs.csv", sep=",")
 
 # Histogram to visualize distribution of values after quantile normalization
 ###### TEST ######
@@ -225,4 +225,32 @@ violin_plots <- function(GENE){
 plots <- Map(violin_plots, GENE=SLCs)
 plots[[1]]
 plots
+
+# Plot all of the genes next to each other
+# Two squares residual inclusion on all of the SLCs
+modelA <- lm(value ~ SMRIN + SMTSISCH, data=organs)
+organs$resids <- residuals(modelA)
+modelB <- lm(value ~ organ + resids, data=organs)
+organs$fitted_values <- fitted.values(modelB)
+organs <- distinct(na.omit(organs))
+
+library(viridis)
+library(hrbrthemes)
+p2 <- organs %>% 
+		mutate(organ = factor(organ, levels = c("heart", "liver"))) %>%
+		ggplot(aes(fill=organ, y=fitted_values, x=gene)) +
+		geom_violin(position="dodge", alpha=0.5) +
+		scale_fill_viridis(discrete=T, name="") +
+#		theme_ipsum() +
+		xlab("organ") +
+		ylab("counts")
+ggsave(paste0("/scratch/mjpete11/linear_models/linear/combat_seq_paired_violin_plots/SLC_grouped.pdf"), p2, device="pdf")
+
+
+
+
+
+
+
+
 
