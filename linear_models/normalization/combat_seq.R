@@ -32,9 +32,9 @@ counts2$"Description" <- counts$"Description"
 # Move the gene names column to the front
 counts2 <- counts2 %>% select("Description", everything())
 
-# Expression filter: Drop a gene if on average there are  <5 counts across all samples
+# Expression filter: Keep a gene if it has >5 counts in at least 1 samples 
 expression_filter <- function(DF, thresh){
-				DAT <- DF[!rowSums(DF<thresh), ]
+				DAT <- DF[rowSums(DF>thresh)>=1, ]
 				return(DAT)
 }
 
@@ -55,10 +55,9 @@ SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
 
 # Are any genes missing?
 setdiff(SLC, counts3$'Description') 
-# A2, A4, UCP1, A12, A26, A31, A33, A34, A38, A44, A46, S48
 
 # How many genes are left?
-nrow(counts3) # 44,621
+nrow(counts3) # 
 
 # None of the batch IDs should be unique
 length(unique(mani$SMGEBTCH))
