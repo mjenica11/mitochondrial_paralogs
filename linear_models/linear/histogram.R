@@ -129,16 +129,27 @@ colnames(organs)[4] <- "SAMPID"
 write.table(organs, "/scratch/mjpete11/linear_models/data/raw_counts_organs.csv", sep=",")
 
 # Read organs df back in
-#organs <- read.csv("/scratch/mjpete11/linear_models/data/raw_counts_organs.csv", sep=",")
+organs <- read.csv("/scratch/mjpete11/linear_models/data/raw_counts_organs.csv", sep=",")
+
+# Drop duplicate samples
+organs2 <- unique(t(apply(organs,1,sort)))
+organs2 <- as.data.frame(organs2)
+
+# Rename columns
+colnames(organs2) <- c("value", "SMTSISCH", "SMRIN", "SUBJID", "SAMPID", "organ", "gene") 
+
+# Convert count value column to numeric
+organs2$value <- as.numeric(organs2$value)
 
 # Historgam function
 # Removed the x and y axis because it wouldn't plot half the genes
 # even if I set it to the maximum possible value :/
 histogram <- function(GENE){
-     dat <- organs %>% filter(gene == GENE)
+     dat <- organs2 %>% filter(gene == GENE)
 #     dat2 <- distinct(na.omit(dat))
      p <- ggplot(dat, aes(value)) +
-       geom_histogram(bins=100, na.rm=TRUE) +
+       geom_histogram(bins=50, na.rm=TRUE) +
+	   geom_vline(xintercept=5, color="red") +
        ylab("frequency") +
        xlab("counts") +
 #	   xlim(c(0,320900)) +
