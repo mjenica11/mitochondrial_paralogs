@@ -11,18 +11,18 @@ library(ggplot2)
 library(ggpubr)
 
 # Read in quantile normalized counts
-counts <- fread("/scratch/mjpete11/linear_models/data/preprocessCore_quantile_normalized_counts.csv", sep=",") # float
+counts <- fread("/scratch/mjpete11/linear_models/data/limma_quantile_normalized_counts.csv", sep=",") # float
 
 # Drop the index column
 counts$V1 <- NULL
 
 # List of SLC25 paralogs
 SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
-		 "SLC5A7", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
+		 "UCP1", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
 		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
 		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
 		 "SLC25A23", "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
-		 "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A3", "SLC25A32", 
+		 "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A31", "SLC25A32", 
 		 "SLC25A33", "SLC25A34", "SLC25A35", "SLC25A36", "SLC25A37", 
 		 "SLC25A38", "SLC25A39", "SLC25A40", "SLC25A41", "SLC25A42", 
 		 "SLC25A43", "SLC25A44", "SLC25A45", "SLC25A46", "SLC25A47",
@@ -33,9 +33,9 @@ counts <- as.data.frame(counts)
 sub_df <- counts[counts$"Description" %in% SLC, ]
 
 # Write to file
-write.table(sub_df, "/scratch/mjpete11/linear_models/data/sub_df_combat_seq_preprocess.csv", sep=",")
+write.table(sub_df, "/scratch/mjpete11/linear_models/data/sub_df_limma_combat_seq_preprocess.csv", sep=",")
 
-# No SLCs missing
+# All present!
 setdiff(SLC, sub_df$'Description') 
 
 # Read in sample attributes files
@@ -118,10 +118,10 @@ organs <- rbind(tmp1, tmp2)
 colnames(organs)[4] <- "SAMPID"
 
 # Write organs df to file
-#write.table(organs, "/scratch/mjpete11/linear_models/data/organs_combat_seq3.csv", sep=",")
+write.table(organs, "/scratch/mjpete11/linear_models/data/organs_combat_seq_limma.csv", sep=",")
 
 # Read organs df back in
-organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_combat_seq.csv", sep=",")
+organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_combat_seq_limma.csv", sep=",")
 
 # Histogram to visualize distribution of values after quantile normalization
 ###### TEST ######
@@ -133,22 +133,40 @@ p <- ggplot(dA1, aes(value)) +
      geom_histogram(bins=100) +
      ylab("frequency") +
      xlab("counts") +
+
      ggtitle(paste0("Histograms of quantile normlized ", "SLC25A1", " expression")) 
 ggsave("test.pdf", p, device="pdf")
 ###### TEST ######
 
+# SLCs that passed the filtering threshold and can be plotted
+SLCs <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
+		 "UCP1", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
+		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
+		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
+		 "SLC25A23", "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
+		 "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A31", "SLC25A32", 
+		 "SLC25A33", "SLC25A34", "SLC25A35", "SLC25A36", "SLC25A37", 
+		 "SLC25A38", "SLC25A39", "SLC25A40", "SLC25A41", "SLC25A42", 
+		 "SLC25A43", "SLC25A44", "SLC25A45", "SLC25A46", "SLC25A47",
+		 "SLC25A48", "MTCH1", "MTCH2", "SLC25A51", "SLC25A52", "SLC25A53")
+
+# Remove duplicates
+organs2 <- organs[!duplicated(organs),]
+
 # Historgam function
 histogram <- function(GENE){
-     dat <- organs %>% filter(gene == GENE)
+     dat <- organs2 %>% filter(gene == GENE)
      dat2 <- distinct(na.omit(dat))
 	 dat2$value <- round(dat2$value, 2)
      p <- ggplot(dat2, aes(value)) +
        geom_histogram(bins=100) +
 	   geom_vline(xintercept=2, color="red") +
        ylab("frequency") +
-       xlab("counts") +
+       xlab("value") +
+	   xlim(c(0,30000)) +
+	   ylim(c(0,350)) +
        ggtitle(paste0("Histograms of combat_seq quantile normalized ", GENE, " expression")) 
-	 ggsave(paste0("/scratch/mjpete11/linear_models/linear/combat_seq_histograms2/", GENE, ".pdf"), p, device="pdf")
+	 ggsave(paste0("/scratch/mjpete11/linear_models/linear/limma_combat_seq_histograms/", GENE, ".pdf"), p, device="pdf")
 #     return(p)
 }
 plts <- Map(histogram, GENE=SLC)
@@ -186,33 +204,10 @@ plts <- Map(histogram, GENE=SLC)
 ####### TEST ######
 #
 ## SLCs that passed the filtering threshold and can be plotted
-# SLCs that passed the 2 counts threshold
-#SLCs <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
-#		 "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
-#		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
-#		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
-#		 "SLC25A23", "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
-#		 "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A32", 
-#		 "SLC25A33", "SLC25A34", "SLC25A35", "SLC25A36", "SLC25A37", 
-#		 "SLC25A38", "SLC25A39", "SLC25A40", "SLC25A41", "SLC25A42", 
-#		 "SLC25A43", "SLC25A44", "SLC25A45", "SLC25A46", "SLC25A47",
-#		 "SLC25A48", "MTCH1", "MTCH2", "SLC25A51", "SLC25A52", "SLC25A53")
 
-# SLCs that passed the 5 counts threshold
-#SLCs <- c("SLC25A1", "SLC25A3", "SLC25A5", "SLC25A6",
-#		 "UCP2", "UCP3", "SLC25A10", "SLC25A11",  
-#		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
-#		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
-#		 "SLC25A23", "SLC25A24", "SLC25A25",  "SLC25A27", 
-#		 "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A32", 
-#		  "SLC25A35", "SLC25A36", "SLC25A37", 
-#		  "SLC25A39", "SLC25A40", "SLC25A41", "SLC25A42", 
-#		 "SLC25A43",  "SLC25A45",  "SLC25A47",
-#		  "MTCH1", "MTCH2", "SLC25A51", "SLC25A52", "SLC25A53")
 
 # Set y lim
-#range(organs$value) # c(0,124,290) at 2 counts filtering threshold
-range(organs$value) # c(0,106268) at 5 counts filtering threshold
+range(organs$value) # c(19.04036 29703.89954) at 5 counts filtering threshold
 
 # Violin and jitter plot function
 violin_plots <- function(GENE){
@@ -231,13 +226,13 @@ violin_plots <- function(GENE){
 			p <- ggplot(dat3, aes(x = organ, y = value)) +
 			geom_violin(aes(colour = organ)) +
 			geom_jitter(aes(colour = organ))  +
-#			ylim(c(0,106300)) +
-			ylab("counts") +
+#			ylim(c(0,30000)) +
+			ylab("values") +
 			xlab("organ") +
 			ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver after 2SRI")) +
 			stat_compare_means(method="t.test") +
 			stat_summary(fun.data = "mean_cl_boot", geom = "crossbar", colour = "red", width = 0.2)
-	        ggsave(paste0("/scratch/mjpete11/linear_models/linear/combat_seq_paired_violin_plots3/", GENE, ".pdf"), p, device="pdf")
+	        ggsave(paste0("/scratch/mjpete11/linear_models/linear/limma_combat_seq_violin_plots/", GENE, ".pdf"), p, device="pdf")
 }
 plots <- Map(violin_plots, GENE=SLC)
 plots[[1]]
@@ -262,12 +257,3 @@ plots
 #		xlab("organ") +
 #		ylab("counts")
 #ggsave(paste0("/scratch/mjpete11/linear_models/linear/combat_seq_paired_violin_plots/SLC_grouped2.pdf"), p2, device="pdf")
-
-
-
-
-
-
-
-
-
