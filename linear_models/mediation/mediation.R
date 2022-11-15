@@ -3,6 +3,7 @@ library(medflex)
 library(data.table)
 library(dplyr)
 library(stringr)
+library(tidyr)
 
 # Read in preprocessCore quantile normalized counts
 counts <- fread("/scratch/mjpete11/linear_models/data/limma_quantile_normalized_counts.csv", sep=",") # float
@@ -140,41 +141,55 @@ length(unique(organs$SUBJID)) # 148
 # Use only the SLCs as the predictor variable
 #Yimp <- glm(organ ~ gene + SMRIN + SMTSISCH, family="binomial", data=organs, weights=NULL, unlist(subset(organs, grepl("SLC25A",gene), gene))) 
 
-##### TEST ####
+############################# TEST ############################################
 #Yimp <- glm(organ ~ gene + SMRIN + SMTSISCH, family="binomial", data=organs, weights=NULL, unlist(subset(organs, grepl("SLC25A",gene), gene))) 
 
 # Subset df for testing and replace some of the heart vars with liver 
 # so there are 2 factor levels for the organs var
-tmp_organs <- organs[100:140,]
-tmp_organs$organ[1:10] <- "liver"
+#tmp_organs <- organs[100:140,]
+#tmp_organs$organ[1:10] <- "liver"
 #tmp_organs$SUBJID <- NULL # Delete unused columns or else glm() complains
 #tmp_organs$SAMPID <- NULL
-tmp_organs <- subset(organs, gene %in% c("SLC25A11", "ACO1"))
+tmp_organs <- subset(organs, gene %in% c("SLC25A4", "HK1"))
 tmp_organs$gene <- as.factor(tmp_organs$gene)
 tmp_organs$organ <- as.factor(tmp_organs$organ) # Convert to factor 
 tmp_organs <- tmp_organs[!duplicated(tmp_organs),]
 
 # Reshape test dataframe; make SLC and biomarker genes into seperate columns
-library(tidyr)
 tmp3 <- spread(tmp_organs, key=gene, value=counts)
-tmp3
-#tmp <- separate(tmp_organs, gene, c("Biomarkers", "SLC"), sep="SLC*", remove=FALSE, co) 
+head(tmp3)
+
+# Function to make list of dataframes for mediation
+make_dfs <- function(GENE, BIOMARKER){
+	dat <- subset(organs, gene %in% c(GENE, BIOMARKER)) # Subset the genes of interest
+	dat$gene <- as.factor(dat$gene) # Convert to factor
+	dat$organ <- as.factor(dat$organ) # Convert to factor 
+	dat <- dat[!duplicated(dat),] # Drop duplicate rows
+
+	# Reshape test dataframe; make SLC and biomarker genes into seperate columns
+	dat2 <- spread(dat, key=gene, value=counts)
+	dat3 <- dat2[complete.cases(dat2),] # Drop NAs
+	dat3 # Print so I can check the data frame
+	return(dat3)
+}
+#dats <- Map(make_dfs, GENE=SLC[1])
+dat1 <- make_dfs(GENE=SLC[1], BIOMARKER=biomarkers[1])
 
 # Expand data: Step 1: fit glm
-#Yimp <- glm(organ ~ counts, family="binomial", data=tmp_organs, weights=NULL, subset=unlist(subset(tmp_organs, grepl("SLC25A",gene), gene))) 
-Yimp0 <- glm(organ ~ SLC25A11 + ACO1, family="binomial", data=tmp3) 
+# Getting the following error: system is computationally singular
+# when I tried SLC16A1 as the mediator variable
+Yimp0 <- glm(organ ~ SLC25A1+ SLC16A1 + SMRIN + SMTSISCH, family="binomial", data=dat1) 
 
 # Expand data: Step 2: impute data 
-impData <- neImpute(Yimp0)
-
-# Takes a long time to run so write to file
-#write.table(impData,"/scratch/mjpete11/linear_models/data/impData.csv") 
+impData0 <- neImpute(Yimp0)
 
 # Fit the natureal effect model
-Yfit <- neModel(organ ~ SLC25A110 + SLC25A111, expData=impData, se="robust", family="binomial") 
+Yfit0 <- neModel(organ ~ SLC25A10 + SLC25A11, expData=impData0, se="robust", family="binomial") 
 
 # Model fit summary
-res <- summary(Yfit)
+summary(Yfit0) # Get the natural direct and indirect effect
+res <- summary(neEffdecomp(Yfit0)) # Get the total effect
+
 
 # Odds ratio of the natural indirect effect
 # Example: Changing the biomarker ACO1 value that would have been observed at
@@ -183,6 +198,42 @@ res <- summary(Yfit)
 # the odds of the observed outcome variable (organ) by...
 exp(-9.259e-04) # 1
 
+############################# Mediation Function  ############################################
+# Mediaton function
+mediation <- function(GENE, NUM){
+	dat <- subset(organs, gene %in% c(GENE, "HK1")) # Subset the genes of interest
+	dat$gene <- as.factor(dat$gene) # Convert to factor
+	dat$organ <- as.factor(dat$organ) # Convert to factor 
+	dat <- dat[!duplicated(dat),] # Drop duplicate rows
 
+	# Reshape test dataframe; make SLC and biomarker genes into seperate columns
+	dat2 <- spread(dat, key=gene, value=counts)
+	dat3 <- dat2[complete.cases(dat2),] # Drop NAs
+	dat3 # Print so I can check the data frame
 
+	# Expand data: Step 1: fit glm
+	Yimp <- glm(organ ~ reformulate(GENE) + HK1 + SMRIN + SMTSISCH, family="binomial", data=dat3) 
+
+	# Expand data: Step 2: impute data 
+	impData <- neImpute(Yimp)
+
+	# Fit the natureal effect model
+	formula0 <- paste(paste0(SLC,"0"),paste0(SLC,"1"), sep=" + ") # Make formulas as strings
+	Yfit <- neModel(organ ~ reformulate(paste(formula[NUM])), expData=impData, se="robust", family="binomial") 
+
+	# Model fit summary
+	res <- summary(neEffdecomp(Yfit))
+	return(res)
+}
+
+# Apply mediator function with each SLC as the independent variable
+# and hexokinase 1 as the mediator
+RES <- Map(mediation, GENE=SLC, NUM=seq(1,53,by=1)) 
+RES <- Map(mediation, GENE=SLC[4]) 
+
+###### Some test code
+form1 <- paste(GENE0, "HK1", "SMRIN", "SMTSISCH", sep=" + ")
+Yimp0 <- glm(organ ~ reformulate(form1), family="binomial", data=tmp3) 
+formula0 <- paste(paste0(SLC,"0"),paste0(SLC,"1"), sep=" + ") # Make formulas as strings
+Yfit <- neModel(organ ~ reformulate(paste(formula[NUM])), expData=impData, se="robust", family="binomial") 
 
