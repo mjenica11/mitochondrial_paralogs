@@ -156,23 +156,22 @@ organs2 <- organs[!duplicated(organs),]
 # Set y lim
 range(organs$value) # c(0.3818, 21.2554) at 5 counts filtering threshold
 
-# Historgam function
-histogram <- function(GENE){
+# Density plot
+density_plot <- function(GENE){
      dat <- organs2 %>% filter(gene == GENE)
      dat2 <- distinct(na.omit(dat))
-	 dat2$value <- round(dat2$value, 2)
+#	 dat2$value <- round(dat2$value, 2)
      p <- ggplot(dat2, aes(value)) +
-       geom_histogram(bins=100) +
+	   geom_density() +
 #	   geom_vline(xintercept=log(5), color="red") + # log of the filtering threshold
-       ylab("frequency") +
+       ylab("density") +
        xlab("logCPM") +
-	   xlim(c(0,30)) +
-	   ylim(c(0,300)) +
-       ggtitle(paste0("Histograms of combat_seq voom quantile normalized ", GENE, " expression")) 
-	 ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_combat_seq_histograms/", GENE, ".pdf"), p, device="pdf")
+	   coord_cartesian(xlim=c(0,30), ylim=c(0,100)) +
+       ggtitle(paste0("Histograms of combat_seq voom quantile normalized ", GENE, " expression"))  
+ 	   ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_combat_seq_density_plots/", GENE, ".pdf"), p, device="pdf")
 #     return(p)
 }
-plts <- Map(histogram, GENE=SLC)
+plts <- Map(density_plot, GENE=SLC)
 
 # Regress out effect of RIN and ischemic time and remove from the model 
 # before making the violin plots
@@ -226,13 +225,15 @@ violin_plots <- function(GENE){
 			p <- ggplot(dat3, aes(x = organ, y = value)) +
 			geom_violin(aes(colour = organ)) +
 			geom_jitter(aes(colour = organ))  +
-			ylim(c(0,30)) +
+	        coord_cartesian(ylim=c(0,25)) +
+#			ylim(c(0,30)) +
 			ylab("logCPM") +
 			xlab("organ") +
 			ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver after 2SRI")) +
-			stat_compare_means(method="t.test") +
+#			stat_compare_means(method="t.test") +
+			stat_compare_means() +
 			stat_summary(fun.data = "mean_cl_boot", geom = "crossbar", colour = "red", width = 0.2)
-	        ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_combat_seq_violin_plots/", GENE, ".pdf"), p, device="pdf")
+	        ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_combat_seq_violin_plots3/", GENE, ".pdf"), p, device="pdf")
 }
 plots <- Map(violin_plots, GENE=SLC)
 plots[[1]]
