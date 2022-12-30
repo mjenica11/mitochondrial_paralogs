@@ -41,6 +41,10 @@ sub_df <- counts[counts$"Description" %in% SLC, ]
 # Write to file
 #write.table(sub_df, "/scratch/mjpete11/linear_models/data/SLC_df_voom_combat_seq.csv", sep=",")
 
+# Read in count df of just SLC genes
+sub_df <- read.csv("/scratch/mjpete11/linear_models/data/SLC_df_voom_combat_seq.csv", sep=",")
+names(sub_df) <- gsub(x=names(sub_df), pattern="\\.", replacement="-")
+
 # All present!
 setdiff(SLC, sub_df$'Description') 
 
@@ -119,15 +123,20 @@ duplicated(organs0) # Yes
 # Drop duplicated rows
 organs <- organs0[!duplicated(organs0),]
 
+# Make each sample ID unique
+# There will be 53 gene expression measurements from each sample ID, so
+# add increasing intergers to make each unique
+organs$SAMPID <- make.unique(organs$SAMPID, sep="_")
+
 # Write organs df to file
 #write.table(organs, "/scratch/mjpete11/linear_models/data/organs_combat_seq_voom.csv", sep=",")
 
 # Use this file to create the design matrix
-#organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_combat_seq_voom.csv", sep=",")
+organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_combat_seq_voom.csv", sep=",")
 
 # Drop samples from the SLC counts df that are not from paired heart or liver
 keeps <- as.vector(organs$SAMPID)
-SLC_heart_liver_counts <- subset(counts, select=keeps) 
+SLC_heart_liver_counts <- subset(sub_df, select=keeps) 
 
 # Are there the same number of samples in the counts df and the organs metadata df? 
 ncol(SLC_heart_liver_counts)==nrow(organs) # TRUE
@@ -146,6 +155,7 @@ all(organs$SAMPID==colnames(ordered_counts)) # TRUE
 
 # Make design matrix
 mat <- model.matrix(~ 0 +organs$organ)
+nrow(mat)==ncol(ordered_counts) # TRUE
 
 #_______________________________________________________________________________ 
 # Perform quantile normalization 
@@ -155,6 +165,7 @@ mat <- model.matrix(~ 0 +organs$organ)
 # but the untransposed matrix is genes (rows) by samples (columns)
 counts_mat <- as.matrix(ordered_counts)
 ncol(counts_mat)==nrow(organs) # TRUE
+nrow(ordered_counts)
 
 # Apply voom normalization
 #voom_obj <- voom(counts=counts_mat[1:20,1:20], design=mat[1:20,], normalize.method="quantile", save.plot=TRUE) # TEST 
@@ -174,7 +185,7 @@ colnames(dat) <- colnames(voom_obj$E)
 
 # Add gene name column
 #gene_names <- organs$"gene"[1:20]
-gene_names <- organs$"gene"
+gene_names <- sub_df$'Description' 
 
 # Make column names unique since there are 53 gene expression measurements
 # from the same sample ID
@@ -196,3 +207,10 @@ identical(colnames(ordered_counts), colnames(dat2[,2:ncol(dat2)])) # TRUE
 
 # Write to file
 write.csv(dat2, "/scratch/mjpete11/linear_models/data/voom_quantile_normalized_counts2.csv")
+
+# Read to file
+voom_df <- read.csv("/scratch/mjpete11/linear_models/data/voom_quantile_normalized_counts2.csv")
+names(voom_df) <- gsub(x=names(voom_df), pattern="\\.", replacement="-")
+
+# Add voom quantile normalized counts to organs df for easy plotting
+
