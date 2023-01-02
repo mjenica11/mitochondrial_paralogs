@@ -125,11 +125,11 @@ organs <- organs0[!duplicated(organs0),]
 
 # Make each sample ID unique
 # There will be 53 gene expression measurements from each sample ID, so
-# add increasing intergers to make each unique
+# add increasing intergers to make a unique gene x sample ID
 organs$SAMPID <- make.unique(organs$SAMPID, sep="_")
 
 # Write organs df to file
-#write.table(organs, "/scratch/mjpete11/linear_models/data/organs_combat_seq_voom.csv", sep=",")
+write.table(organs, "/scratch/mjpete11/linear_models/data/organs_combat_seq_voom.csv", sep=",")
 
 # Use this file to create the design matrix
 organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_combat_seq_voom.csv", sep=",")
@@ -160,14 +160,13 @@ nrow(mat)==ncol(ordered_counts) # TRUE
 #_______________________________________________________________________________ 
 # Perform quantile normalization 
 #_______________________________________________________________________________ 
-# Perform quantile normalization with voom
-# Transpose since the function applies qnrom by column
-# but the untransposed matrix is genes (rows) by samples (columns)
+# Does the number of columns (samples) in the ordered counts matrix
+# match the number of rows (samples) in the organs df?
 counts_mat <- as.matrix(ordered_counts)
 ncol(counts_mat)==nrow(organs) # TRUE
 nrow(ordered_counts)
 
-# Apply voom normalization
+# Apply voom normalization and quantile normalization
 #voom_obj <- voom(counts=counts_mat[1:20,1:20], design=mat[1:20,], normalize.method="quantile", save.plot=TRUE) # TEST 
 voom_obj <- voom(counts=counts_mat, design=mat, normalize.method="quantile", save.plot=TRUE) # TEST 
 
@@ -212,5 +211,16 @@ write.csv(dat2, "/scratch/mjpete11/linear_models/data/voom_quantile_normalized_c
 voom_df <- read.csv("/scratch/mjpete11/linear_models/data/voom_quantile_normalized_counts2.csv")
 names(voom_df) <- gsub(x=names(voom_df), pattern="\\.", replacement="-")
 
-# Add voom quantile normalized counts to organs df for easy plotting
+# Convert column names (sample ID) into column 
+voom_df$X <- NULL
+voom_df2 <- melt(voom_df)
+colnames(voom_df2)[2] <- "SAMPID"
+colnames(voom_df2)[1] <- "gene"
 
+# Add voom quantile normalized counts to organs df for easy plotting
+organs2 <- left_join(organs, voom_df2, by=c("gene", "SAMPID"))
+colnames(organs2)[10] <- "voom"
+colnames(organs2)[5] <- "counts"
+
+# Write to file
+write.csv(organs2, "/scratch/mjpete11/linear_models/data/voom_quantile_normalized_counts3.csv")
