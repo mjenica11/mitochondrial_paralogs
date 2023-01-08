@@ -42,7 +42,7 @@ expression_filter <- function(DF, thresh){
 counts3 <- expression_filter(DF=counts2, thresh=5)
 
 # Write filtered counts to file
-write.csv("/scratch/mjpete11/linear_models/data/filtered_counts.csv")
+write.csv(counts3, "/scratch/mjpete11/linear_models/data/filtered_counts.csv")
 
 # Did any SLCs drop out?
 SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
