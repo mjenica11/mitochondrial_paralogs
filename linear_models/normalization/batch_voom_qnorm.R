@@ -133,7 +133,7 @@ length(unique(organs_tmp$SUBJID)) # 148 individuals
 #write.table(organs, "/scratch/mjpete11/linear_models/data/organs_combat_seq.csv", sep=",")
 
 # Use this file to create the design matrix
-organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_combat_seq.csv", sep=",")
+#organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_combat_seq.csv", sep=",")
 
 # Drop samples from the counts df that are not from paired heart or liver
 keeps <- as.vector(organs$SAMPID)
@@ -155,7 +155,7 @@ ordered_counts <- counts3[,..idx]
 all(organs$SAMPID==colnames(ordered_counts)) # TRUE
 
 # Make design matrix
-mat <- model.matrix(~ 0 + organ + SMGEBTCH, data=organs)
+mat <- model.matrix(~ 0 + organ + SMGEBTCH + SMRIN + SMTSISCH, data=organs)
 nrow(mat)==ncol(ordered_counts) # TRUE
 
 #_______________________________________________________________________________ 
@@ -170,65 +170,23 @@ nrow(ordered_counts) # 56,200
 print("line 170")
 # Apply voom normalization and quantile normalization
 #voom_obj <- voom(counts=counts_mat[1:20,1:20], design=mat[1:20,], normalize.method="quantile", save.plot=TRUE) # TEST 
+print("line 173")
 voom_obj <- voom(counts=counts_mat, design=mat, normalize.method="quantile", save.plot=TRUE) # TEST 
+print("line 175")
 
-voom_obj$weights[1:5,1:5] 
+# Perform differential expression
+#fit <- lmFit(voom_obj, mat[1:20,])
+fit <- lmFit(voom_obj, mat)
+print("line 178")
+fit <- eBayes(fit)
+
+# Check that values were transformed
+fit$s2.post[1:5,1:5] 
 ordered_counts[1:5,1:6]
 
-#dim(voom_obj[["weights"]])==dim(ordered_counts[1:20,1:20]) # TRUE TRUE
-dim(voom_obj[["weights"]])==dim(ordered_counts) # TRUE TRUE
-
-print("line 181")
-# Save the logCPM and voom normalized counts into a separate df
-dat <- as.data.frame(voom_obj[["weights"]])
-
-print("line 185")
-# Add column names back
-colnames(dat) <- colnames(voom_obj$E) 
-
-print("line 189")
-# Add gene name column
-#gene_names <- organs$"gene"[1:20]
-gene_names <- counts$'Description' 
-
-print("line 194")
-# Make column names unique since there are 53 gene expression measurements
-# from the same sample ID
-samples <- make.unique(colnames(dat), sep="_")
-colnames(dat) <- samples
-
-print("line 200")
-# Add gene name column 
-dat$"Description" <- gene_names
-
-print("line 204")
-# Move the gene name column to the front
-dat2 <- dat %>% select("Description", everything())
-
-dat2[1:5,1:5]
-ordered_counts[1:5,1:5]
-
-print("line 211")
-# Double check that the column names of the original counts and voom
-# transformed counts are in the same order
-identical(colnames(ordered_counts), colnames(dat2[,2:ncol(dat2)])) # TRUE
-
-# Write to file
-write.csv(dat2, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_counts.csv")
-
-# Read to file
-voom_df <- read.csv("/scratch/mjpete11/linear_models/data/voom_qnorm_counts.csv")
-names(voom_df) <- gsub(x=names(voom_df), pattern="\\.", replacement="-")
-
-# Convert column names (sample ID) into column 
-voom_df$X <- NULL
-voom_df2 <- melt(voom_df)
-colnames(voom_df2)[2] <- "SAMPID"
-colnames(voom_df2)[1] <- "gene"
-
-print("line 299")
-# Add voom quantile normalized counts to organs df for easy plotting
-organs2 <- left_join(organs, voom_df2, by=c("gene", "SAMPID"))
+print("line 184")
+# Add posterior fitted values to organs dataframe for plotting
+organs$eBayes_values <- fit$s2.post
 colnames(organs2)[10] <- "voom"
 colnames(organs2)[5] <- "counts"
 
