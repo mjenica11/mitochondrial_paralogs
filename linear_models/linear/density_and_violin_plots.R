@@ -9,6 +9,7 @@ library(stringr)
 library(ggplot2)
 library(ggpubr)
 library(rstatix)
+library(stats)
 
 # Read in voom quantile normalized counts
 organs <- fread("/scratch/mjpete11/linear_models/data/voom_qnorm_counts1.csv", sep=",") # float
@@ -48,6 +49,26 @@ plts <- Map(density_plot, GENE=SLC)
 # Regress out effect of RIN and ischemic time and remove from the model 
 # before making the violin plots
 
+##### TEST #####
+datt <- organs %>% filter(gene == "SLC25A1")
+datt2 <- na.omit(datt)
+datt3 <- distinct(na.omit(datt2))
+# Regress out effect of RIN and ischemic time on SLC
+model1 <- lm(voom ~ SMRIN + SMTSISCH, data=datt3)
+# Add fitted values to dattaframe
+datt3$resids <- residuals(model1)
+# Regress organ on SLC using previous fitted regression values as offset
+model2 <- lm(voom ~ organ + resids, data=datt3)
+# Add fitted values from second linear model to dattaframs
+datt3$fitted_values <- fitted.values(model2)
+# Calculate confidence interval
+CI <- datt3 %>% group_by(organ) %>% summarize(Mean=mean(fitted_values),
+											 SD=sd(fitted_values),
+											 CI_L=Mean-(SD*1.96)/sqrt(50),
+											 CI_U=Mean+(SD*1.96)/sqrt(50))
+##### TEST #####
+
+
 # Violin and jitter plot function
 violin_plots <- function(GENE){
 	dat <- organs %>% filter(gene == GENE)
@@ -61,18 +82,21 @@ violin_plots <- function(GENE){
 	model2 <- lm(voom ~ organ + resids, data=dat3)
 	# Add fitted values from second linear model to dataframs
 	dat3$fitted_values <- fitted.values(model2)
-	P_VAL=wilcox.test(formula=fitted_values~organ,data=dat3)$p.value*53
+	p_val <- wilcox.test(formula=fitted_values~organ,data=dat3)$p.value
+	n_tests <- 53
+	corrected_pval <- p.adjust(p_val, method="bonferroni", n=n_tests)
     # Violin plot
-	p <- ggplot(dat3, aes(x = organ, y = fitted_values)) +
-	geom_violin(aes(colour = organ)) +
-	geom_jitter(aes(colour = organ))  +
-	annotate(geom = "text",x = 1.5,y = max(dat3$fitted_values),label=paste0("p value: ",P_VAL))+
+	p <- ggplot(dat3, aes(x = organ, y = fitted_values, fill=organ)) +
+	geom_violin(width=0.3) +
+	scale_fill_manual(values=c("lightgreen", "plum1")) +
+	geom_jitter(width=0.3) +
+	geom_boxplot(width=0.3, color="navyblue", alpha=0.2, notch=TRUE) +
+	annotate(geom = "text",x = 1.5,y = max(dat3$fitted_values)+1,label=paste0("p value: ",corrected_pval)) +
 	#ylim(c(0,30)) +
 	ylab("logCPM") +
 	xlab("organ") +
-	ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver after 2SRI")) +
-    stat_summary(fun.data = "mean_cl_boot", geom = "crossbar", colour = "red", width = 0.2)
-	ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_violin_plots2/", GENE, ".pdf"), p, device="pdf")
+	ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver after 2SRI")) 
+	ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_violin_plots2/", GENE, ".png"), p, device="png")
 }
 plots <- Map(violin_plots, GENE=SLC)
 violin_plots(GENE="SLC25A1", DATA=organs)
