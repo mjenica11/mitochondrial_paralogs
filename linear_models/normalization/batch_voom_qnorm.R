@@ -11,9 +11,8 @@ library(ggplot2)
 library(ggpubr)
 
 #_______________________________________________________________________________ 
-# Read in combat_seq batch adjusted matrix 
+# Read in filtered counts 
 #_______________________________________________________________________________ 
-# Read in GTEx counts
 counts <- fread("/scratch/mjpete11/linear_models/data/filtered_counts.csv", sep=",")
 
 # Drop the index column
@@ -133,7 +132,7 @@ length(unique(organs_tmp$SUBJID)) # 148 individuals
 #write.table(organs, "/scratch/mjpete11/linear_models/data/organs_combat_seq.csv", sep=",")
 
 # Use this file to create the design matrix
-#organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_combat_seq.csv", sep=",")
+organs <- read.csv("/scratch/mjpete11/linear_models/data/filtered_counts_organ_metadata.csv", sep=",")
 
 # Drop samples from the counts df that are not from paired heart or liver
 keeps <- as.vector(organs$SAMPID)
@@ -171,8 +170,11 @@ print("line 170")
 # Apply voom normalization and quantile normalization
 #voom_obj <- voom(counts=counts_mat[1:20,1:20], design=mat[1:20,], normalize.method="quantile", save.plot=TRUE) # TEST 
 print("line 173")
-voom_obj <- voom(counts=counts_mat, design=mat, normalize.method="quantile", save.plot=TRUE) # TEST 
+voom_obj <- voom(counts=counts_mat, design=mat, normalize.method="quantile")  
 print("line 175")
+
+#write.csv(voom_obj$weights, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_weights.csv")
+#gene_weights <- fread("/scratch/mjpete11/linear_models/data/batch_voom_qnorm_weights.csv")
 
 # Perform differential expression
 #fit <- lmFit(voom_obj, mat[1:20,])
@@ -180,15 +182,9 @@ fit <- lmFit(voom_obj, mat)
 print("line 178")
 fit <- eBayes(fit)
 
-# Check that values were transformed
-fit$s2.post[1:5,1:5] 
-ordered_counts[1:5,1:6]
+# Write the logFC and moderated t statistics to file so they can be added to the organs dataframe
+write.csv(fit$coefficients, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_logFC.csv")
+write.csv(fit$t, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_moderatedt.csv")
+print("line 188")
 
-print("line 184")
-# Add posterior fitted values to organs dataframe for plotting
-organs$eBayes_values <- fit$s2.post
-colnames(organs2)[10] <- "voom"
-colnames(organs2)[5] <- "counts"
-
-# Write to file
-write.csv(organs2, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_meta.csv")
+# Adding moderated t values will be in a separate script (limma_tstats_organs.R)
