@@ -166,25 +166,29 @@ counts_mat <- as.matrix(ordered_counts)
 ncol(counts_mat)==nrow(organs) # TRUE
 nrow(ordered_counts) # 56,200
 
-print("line 170")
+print("completed ordered counts matrix")
 # Apply voom normalization and quantile normalization
 #voom_obj <- voom(counts=counts_mat[1:20,1:20], design=mat[1:20,], normalize.method="quantile", save.plot=TRUE) # TEST 
-print("line 173")
 voom_obj <- voom(counts=counts_mat, design=mat, normalize.method="quantile")  
-print("line 175")
+print("completed voom")
 
-#write.csv(voom_obj$weights, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_weights.csv")
-#gene_weights <- fread("/scratch/mjpete11/linear_models/data/batch_voom_qnorm_weights.csv")
+# Write the matrix of normalized expression values on log2 scale to file
+#write.csv(voom_obj$E, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_matrix.csv")
 
 # Perform differential expression
 #fit <- lmFit(voom_obj, mat[1:20,])
 fit <- lmFit(voom_obj, mat)
-print("line 178")
+print("completed fit")
 fit <- eBayes(fit)
+print("completed eBayes")
+
+# Calculate the logFC and confidence intervals
+res <- topTable(fit, coef=NULL, number=53, genelist=SLC, adjust.method="BH",
+				sort.by="logFC", p.value=0.05, lfc=0, confint=FALSE)
+write.csv(res, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_topTable.csv")
 
 # Write the logFC and moderated t statistics to file so they can be added to the organs dataframe
-write.csv(fit$coefficients, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_logFC.csv")
-write.csv(fit$t, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_moderatedt.csv")
-print("line 188")
+#write.csv(fit$coefficients, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_logFC.csv")
+#write.csv(fit$t, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_moderatedt.csv")
+#print("line 188")
 
-# Adding moderated t values will be in a separate script (limma_tstats_organs.R)
