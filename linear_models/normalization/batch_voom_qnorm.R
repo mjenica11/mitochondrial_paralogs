@@ -183,8 +183,9 @@ fit <- eBayes(fit)
 print("completed eBayes")
 
 # Calculate the logFC and confidence intervals
-res <- topTable(fit, coef=NULL, number=53, genelist=SLC, adjust.method="BH",
-				sort.by="logFC", p.value=0.05, lfc=0, confint=FALSE)
+# Set the coefficient parameter to be the heart coefficient 
+res <- topTable(fit, coef=1, number=Inf, adjust.method="BH",
+				sort.by="logFC", p.value=0.05, lfc=0, confint=TRUE)
 write.csv(res, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_topTable.csv")
 
 # Write the logFC and moderated t statistics to file so they can be added to the organs dataframe
