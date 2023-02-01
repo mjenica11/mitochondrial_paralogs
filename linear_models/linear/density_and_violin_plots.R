@@ -32,6 +32,7 @@ SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
 # Set y lim
 range(organs$voom) # c(0.464, 31.73) at 5 counts filtering threshold
 
+library(scales)
 # Density plot
 density_plot <- function(GENE){
      dat <- organs %>% filter(gene == GENE)
@@ -42,7 +43,7 @@ density_plot <- function(GENE){
      xlab("logCPM") +
 	 coord_cartesian(xlim=c(0,35), ylim=c(0,20)) +
      ggtitle(paste0("Density plots of combat_seq voom quantile normalized ", GENE, " expression"))  
- 	 ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_density_plots/", GENE, ".png"), p, device="png")
+ 	 ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_density_plots3/", GENE, ".png"), p, device="png")
 }
 plts <- Map(density_plot, GENE=SLC)
 
@@ -95,8 +96,9 @@ violin_plots <- function(GENE){
 	#ylim(c(0,30)) +
 	ylab("logCPM") +
 	xlab("organ") +
+	scale_y_continuous(breaks=scales::pretty_breaks(n=10)) + # Add more y-axis tick marks
 	ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver after 2SRI")) 
-	ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_violin_plots2/", GENE, ".png"), p, device="png")
+	ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_combat_seq_violin_plots3/", GENE, ".png"), p, device="png")
 }
 plots <- Map(violin_plots, GENE=SLC)
 violin_plots(GENE="SLC25A1", DATA=organs)
