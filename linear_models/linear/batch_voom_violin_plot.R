@@ -27,7 +27,7 @@ voom_matrix$V1 <- NULL
 
 # List of SLC25 paralogs
 SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
-		 "SLC5A7", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
+		 "UCP1", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
 		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
 		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
 		 "SLC25A23", "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
@@ -117,29 +117,8 @@ dim(organs) # 15688 5
 # Read organs df back in
 #organs <- read.csv("/scratch/mjpete11/linear_models/data/batch_voom_organs.csv", sep=",")
 
-
-# Example data
-#set.seed(123)
-#dat = data.frame(group = rep(c("A", "B"), each = 30),
-#				  value = c(rnorm(30, mean = 5, sd = 2), 
-#				  rnorm(30, mean = 8, sd = 1)))
-
-# Calculate standard deviation
-#data$sd = sapply(split(data$value, data$group), sd)
-
-# Calculate standard deviation
-organs$stan_dev = sapply(split(organs$value, organs$organ), sd)
-
 # Range of voom + qnorn values
 range(organs$value) # -6.999 to 11.19
-
-# function for computing mean, DS, max and min values
-min_mean_sd_max <- function(x) {
-		  r <- c(min(x), mean(x) - sd(x), mean(x), mean(x) + sd(x), max(x))
- 		  names(r) <- c("ymin", "lower", "middle", "upper", "ymax")
-          r
-}
-min_mean_sd_max(organs$value)
 
 # Subset one gene for the test plot
 test <- subset(organs, gene %in% c("SLC25A4"))
@@ -159,6 +138,9 @@ ggplot(test, aes(x = organ, y = value, fill = organ)) +
 # Function to plot violin plots
 violin <- function(GENE){
 		 dat <- organs %>% filter(gene==GENE)
+         p_val <- wilcox.test(formula=value~organ, data=dat)$p.value
+	     n_tests <- 53
+	     corrected_pval <- p.adjust(p_val, method="bonferroni", n=n_tests)
 	     p <- ggplot(dat, aes(x = organ, y = value, fill = organ)) +
 	   	  	  geom_violin(trim = FALSE) +
        		  stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2) +
@@ -166,8 +148,9 @@ violin <- function(GENE){
 	   		  geom_jitter(size = 1, alpha = 0.9) +
 #       		  scale_y_continuous(limits = c(-15, 15), expand = c(0,0),
 #			   			       breaks = seq(-15, 15, by = 1)) +
-	   		  labs(x = "organ", y = "log2(CPM)", fill = "")
-	   		  ggtitle(paste0("Violin plot of", GENE, " expression between heart and liver after blocking by batch via limma::voom()")) 
+	   		  labs(x = "organ", y = "log2(CPM)", fill = "") +
+			  annotate(geom = "text", x = 1.5, y = max(dat$value)+5, label=paste0("adj. p value: ", corrected_pval)) +
+	   		  ggtitle(paste0("Violin plot of ", GENE, " expression after blocking by batch via voom()")) 
 	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_violin_plots4/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
