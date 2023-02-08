@@ -10,6 +10,7 @@ library(ggplot2)
 library(ggpubr)
 library(rstatix)
 library(stats)
+library(scales)
 
 # Read in voom quantile normalized counts
 organs <- fread("/scratch/mjpete11/linear_models/data/voom_qnorm_counts1.csv", sep=",") # float
@@ -32,7 +33,6 @@ SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
 # Set y lim
 range(organs$voom) # c(0.464, 31.73) at 5 counts filtering threshold
 
-library(scales)
 # Density plot
 density_plot <- function(GENE){
      dat <- organs %>% filter(gene == GENE)
@@ -69,7 +69,7 @@ CI <- datt3 %>% group_by(organ) %>% summarize(Mean=mean(fitted_values),
 											 CI_U=Mean+(SD*1.96)/sqrt(50))
 ##### TEST #####
 
-
+rm(violin_plots)
 # Violin and jitter plot function
 violin_plots <- function(GENE){
 	dat <- organs %>% filter(gene == GENE)
@@ -84,21 +84,21 @@ violin_plots <- function(GENE){
 	# Add fitted values from second linear model to dataframs
 	dat3$fitted_values <- fitted.values(model2)
 	p_val <- wilcox.test(formula=fitted_values~organ,data=dat3)$p.value
-	n_tests <- 53
-	corrected_pval <- p.adjust(p_val, method="bonferroni", n=n_tests)
+	corrected_pval <- p.adjust(p_val, method="bonferroni", n=53)
     # Violin plot
 	p <- ggplot(dat3, aes(x = organ, y = fitted_values, fill=organ)) +
-	geom_violin(width=0.3) +
-	scale_fill_manual(values=c("lightgreen", "plum1")) +
+	geom_violin(width=1, position=position_dodge(width=0.5)) +
+	scale_fill_manual(values=c("lightgreen", "purple")) +
 	geom_jitter(width=0.3) +
-	geom_boxplot(width=0.3, color="navyblue", alpha=0.2, notch=TRUE) +
+	stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.1, alpha=0.1) +
+#	geom_boxplot(width=0.3, color="navyblue", alpha=0.2, notch=TRUE) +
 	annotate(geom = "text",x = 1.5,y = max(dat3$fitted_values)+1,label=paste0("p value: ",corrected_pval)) +
 	#ylim(c(0,30)) +
-	ylab("logCPM") +
+	ylab("log2CPM") +
 	xlab("organ") +
-	scale_y_continuous(breaks=scales::pretty_breaks(n=10)) + # Add more y-axis tick marks
+	scale_y_continuous(breaks=scales::pretty_breaks(n=20)) + # Add more y-axis tick marks
 	ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver after 2SRI")) 
-	ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_combat_seq_violin_plots3/", GENE, ".png"), p, device="png")
+	ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_combat_seq_violin_plots1/", GENE, ".png"), p, device="png")
 }
 plots <- Map(violin_plots, GENE=SLC)
 violin_plots(GENE="SLC25A1", DATA=organs)
