@@ -24,6 +24,10 @@ counts$V1 <- NULL
 keeps <- as.vector(organs$SAMPID)
 counts2 <- subset(counts, select=keeps) 
 
+# How many samples are there?
+ncol(counts2)
+length(unique(colnames(counts2))) # 296 samples --> 148 paired heart and liver samples
+
 # Are there the same number of samples in the counts df and the organs metadata df? 
 ncol(counts2)==nrow(organs) # TRUE
 
@@ -44,32 +48,56 @@ mat <- model.matrix(~ 0 + organ + SMGEBTCH + SMRIN + SMTSISCH, data=organs)
 nrow(mat)==ncol(ordered_counts) # TRUE
 
 #_______________________________________________________________________________ 
-# Perform quantile normalization 
+# Perform voom + quantile normalization 
 #_______________________________________________________________________________ 
 # Does the number of columns (samples) in the ordered counts matrix
 # match the number of rows (samples) in the organs df?
 counts_mat <- as.matrix(ordered_counts)
 ncol(counts_mat)==nrow(organs) # TRUE
 nrow(ordered_counts) # 56,200
+print("Made ordered count matrix")
 
 # Apply voom with quality weights  normalization and quantile normalization
-#voom_obj <- voom(counts=counts_mat[1:20,1:20], design=mat[1:20,], normalize.method="quantile", save.plot=TRUE) # TEST 
-print("line 57")
-voom_obj <- voomWithQualityWeights(counts=counts_mat, design=mat, normalize.method="quantile", save.plot=TRUE) # TEST 
-print("line 59")
+#voom_obj <- voomWithQualityWeights(counts=counts_mat[1:20,1:20], design=mat[1:20,], normalize.method="quantile") # TEST 
+voom_obj <- voom(counts=counts_mat, design=mat, normalize.method="quantile")
+print("voom completed")
 
-#write.csv(voom_obj$weights, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_weights.csv")
-#gene_weights <- fread("/scratch/mjpete11/linear_models/data/batch_voom_qnorm_weights.csv")
+# Estimate array weights on top of voom weights	
+aw <- arrayWeights(voom_obj, design=mat, method="auto", maxiter=maxiter)
+print("first weights completed")
+
+# Update voom weights now using the array weights
+voom_obj <- voom(counts_mat, design=mat, weights=aw, normalize.method="quantile", plot=FALSE, span=span, ...)
+print("second voom completed")
+
+# Update array weights again
+aw <- arrayWeights(voom_obj, design=mat, method="auto")
+print("second weights completed")
+
+# Incorporate the array weights into the voom weights
+voom_obj$weights <- t(aw * t(voom_obj$weights))
+voom_obj$targets$sample.weights <- aw
+
+# Write the matrix of normalized expression values on the log2 scale
+write.csv(voom_obj$E, "/scratch/mjpete11/linear_models/data/voomWithArrayWeights_matrix1.csv")
+print("wrote the E object to file")
 
 # Perform differential expression
 #fit <- lmFit(voom_obj, mat[1:20,])
 fit <- lmFit(voom_obj, mat)
-print("line 67")
+print("lmFit completed")
 fit <- eBayes(fit)
+print("eBayes completed")
+
+# Calculate the logFC and confidence intervals
+# Set the coefficient to be the contrast between heart and liver
+res <- topTable(fit, coef=1, number=Inf, genelist=SLC, adjust.method="BH",
+				sort.by="logFC", p.value=0.05, lfc=0, confint=TRUE)
+write.csv(res, "/scratch/mjpete11/linear_models/data/voomWithArrayWeights_topTable.1csv")
 
 # Write the logFC and moderated t statistics to file so they can be added to the organs dataframe
-write.csv(fit$coefficients, "/scratch/mjpete11/linear_models/data/voomWithArrayWeights_logFC.csv")
-write.csv(fit$t, "/scratch/mjpete11/linear_models/data/voomWithArrayWeights_moderatedt.csv")
-print("line 73")
+write.csv(fit$coefficients, "/scratch/mjpete11/linear_models/data/voomWithArrayWeights_logFC1.csv")
+write.csv(fit$t, "/scratch/mjpete11/linear_models/data/voomWithArrayWeights_moderatedt1.csv")
+print("Done")
 
-# Adding logFC and moderated t statistics will be in a separate script (limma_tstats_organs.R)
+# Kernel density plots are in violin_plots.R
