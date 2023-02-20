@@ -9,6 +9,7 @@ library(reshape)
 library(stringr)
 library(ggplot2)
 library(ggpubr)
+library(edgeR)
 
 # Read in quantile normalized counts
 # Start with 9 samples since I keep getting out of memory errors
@@ -87,25 +88,43 @@ tmp1 <- organs_tmp[,c("SUBJID", "gene.x", "organ.x", "SAMPID.x", "value.x")]
 tmp2 <- organs_tmp[,c("SUBJID", "gene.y", "organ.y", "SAMPID.y", "value.y")]
 colnames(tmp1) <- c("SUBJID", "gene", "organ", "SUBJID", "value")
 colnames(tmp2) <- c("SUBJID", "gene", "organ", "SUBJID", "value")
-organs <- rbind(tmp1, tmp2)
-colnames(organs)[4] <- "SAMPID"
-organs0 <- organs[!duplicated(organs), ]
+organs0 <- rbind(tmp1, tmp2)
+colnames(organs0)[4] <- "SAMPID"
+organs <- organs0[!duplicated(organs0), ]
 
 # Convert the counts to log2(CPM) scale
-library(edgeR)
-organs0$log2_cpm <- cpm(organs0$value, log=TRUE)
+organs$log2_cpm <- cpm(organs$value, log=TRUE)
 
-# Write organs df to file
-#write.table(organs, "/scratch/mjpete11/linear_models/data/organs.csv", sep=",")
+# Write organs df to file (02-20-2022)
+write.table(organs, "/scratch/mjpete11/linear_models/data/organs.csv", sep=",")
 
 # Read organs df back in
-#organs <- read.csv("/scratch/mjpete11/linear_models/data/organs.csv", sep=",")
-range(organs0$log2_cpm)
+organs <- read.csv("/scratch/mjpete11/linear_models/data/organs.csv", sep=",")
+
+# Write a list of striated samples (all have the same expression values)
+# Subset to the range of expected values
+striated <- subset(organs, organs$log2_cpm >=-5 & organs$log2_cpm < -4.5)
+# Drop unnecessary column
+striated$value <- NULL
+# Write to file
+write.table(striated, "/scratch/mjpete11/linear_models/data/striated_no_batch.csv", sep=",")
+
+# Remove samples >6 standard deviations away
+median(organs$log2_cpm) # 3.71
+sd(organs$log2_cpm) # 3.64 
+sd(organs$log2_cpm) * 6 # +/- 21.82 
+
+# Are there any samples outside of this range?
+range(organs$log2_cpm) # -4.88 to 12.4
+
+# Details for plots
+range(organs$log2_cpm)
 rm(violin)
 rm(plots)
+
 # Function to plot violin plots
 violin <- function(GENE){
-		 dat <- organs0 %>% filter(gene==GENE)
+		 dat <- organs %>% filter(gene==GENE)
          p_val <- wilcox.test(formula=log2_cpm~organ, data=dat, paired=TRUE, exact=TRUE)$p.value
 	     n_tests <- 53
 	     corrected_pval <- p.adjust(p_val, method="bonferroni", n=n_tests)
@@ -114,12 +133,11 @@ violin <- function(GENE){
        		  stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
 	   		  scale_fill_manual(values = c("lightgreen", "purple")) +
 	   		  geom_jitter(size = 1, alpha = 0.9) +
-       		  scale_y_continuous(limits = c(-15, 15), expand = c(0,0),
-			   			       breaks = seq(-15, 15, by = 1)) +
+#       		  scale_y_continuous(limits = c(-20, 20), expand = c(0,0), breaks = seq(-20, 20, by = 1)) +
 	   		  labs(x = "organ", y = "log2(CPM)", fill = "") +
-			  annotate(geom = "text", x = 1.5, y = 14, label=paste0("adj. p value: ", corrected_pval)) +
+			  annotate(geom = "text", x = 1.5, y = max(organs$log2_cpm)+5, label=paste0("adj. p value: ", corrected_pval)) +
 	   		  ggtitle(paste0("Violin plot of ", GENE, " expression without batch correction")) 
-	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/no_batch_violin_plots/", GENE, ".png"), device="png")
+	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/no_batch_violin_plots_no_ylim/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
