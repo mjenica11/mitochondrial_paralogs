@@ -107,15 +107,18 @@ striated <- subset(organs, organs$log2_cpm >=-5 & organs$log2_cpm < -4.5)
 
 # Remove samples >6 standard deviations away
 median(organs$log2_cpm) # 3.71
+mean(organs$log2_cpm) # 3.03
 sd(organs$log2_cpm) # 3.64 
 sd(organs$log2_cpm) * 6 # +/- 21.8 
+above <- 3.03 + 21.8 # 24.83
+below <- 3.03 - 21.8 # -18.77
 
 # Are there any samples outside of this range?
 range(organs$log2_cpm) # -4.88 to 12.4 
 
 # Number of samples outside of this range
-outlier_above <- organs[organs$log2_cpm > 21.8,] # 0 sample  
-outlier_below <- organs[organs$log2_cpm < -21.8,] # 0 samples 
+outlier_above <- organs[organs$log2_cpm > 24.83,] # 0 sample  
+outlier_below <- organs[organs$log2_cpm < -18.77,] # 0 samples 
 
 # Write to file
 write.table(striated, "/scratch/mjpete11/linear_models/data/striated_no_batch.csv", sep=",")
