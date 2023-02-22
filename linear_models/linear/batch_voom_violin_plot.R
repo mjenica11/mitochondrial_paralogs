@@ -126,15 +126,18 @@ write.table(striated, "/scratch/mjpete11/linear_models/data/striated_voom_batch.
 
 # Remove samples >6 standard deviations away
 median(organs$value) # 3.68
+mean(organs$value) # 2.85
 sd(organs$value) # 3.88 
 sd(organs$value) * 6 # +/- 23.3
+above <- 2.85 + 23.3 # 26.15
+below <- 2.85 - 23.3 # -20.45
 
 # Are there any samples outside of this range?
 range(organs$value) # -7.00 to 11.19 
 
 # Number of samples outside of this range
-outlier_above <- organs[organs$value > 23.3,] # 0 samples 
-outlier_below <- organs[organs$value < -23.3,] # 0 samples 
+outlier_above <- organs[organs$value > 26.15,] # 0 samples 
+outlier_below <- organs[organs$value < -20.45,] # 0 samples 
 
 # Subset one gene for the test plot
 test <- subset(organs, gene %in% c("SLC25A4"))
