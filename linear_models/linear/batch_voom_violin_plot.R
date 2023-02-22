@@ -117,8 +117,24 @@ write.table(organs, "/scratch/mjpete11/linear_models/data/batch_voom_organs.csv"
 # Read organs df back in
 organs <- read.csv("/scratch/mjpete11/linear_models/data/batch_voom_organs.csv", sep=",")
 
-# Range of voom + qnorn values
-range(organs$value) # -6.999 to 11.19
+# Write the striated samples to file
+# Subset to the range of expected values
+striated <- subset(organs, organs$value > -7 & organs$value < -6.8)
+nrow(striated) # 967 genes
+# Write to file
+write.table(striated, "/scratch/mjpete11/linear_models/data/striated_voom_batch.csv", sep=",")
+
+# Remove samples >6 standard deviations away
+median(organs$value) # 3.68
+sd(organs$value) # 3.88 
+sd(organs$value) * 6 # +/- 23.3
+
+# Are there any samples outside of this range?
+range(organs$value) # -7.00 to 11.19 
+
+# Number of samples outside of this range
+outlier_above <- organs[organs$value > 23.3,] # 0 samples 
+outlier_below <- organs[organs$value < -23.3,] # 0 samples 
 
 # Subset one gene for the test plot
 test <- subset(organs, gene %in% c("SLC25A4"))
@@ -136,6 +152,7 @@ ggplot(test, aes(x = organ, y = value, fill = organ)) +
 	   ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_violin_plots4/test.png"), device="png")
 
 # Function to plot violin plots
+rm(violin)
 violin <- function(GENE){
 		 dat <- organs %>% filter(gene==GENE)
          p_val <- wilcox.test(formula=value~organ, data=dat, paired=TRUE, exact=TRUE)$p.value
@@ -146,12 +163,12 @@ violin <- function(GENE){
        		  stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
 	   		  scale_fill_manual(values = c("lightgreen", "purple")) +
 	   		  geom_jitter(size = 1, alpha = 0.9) +
-       		  scale_y_continuous(limits = c(-15, 15), expand = c(0,0),
-			   			       breaks = seq(-15, 15, by = 1)) +
+#       		  scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
+#			   			       breaks = seq(-35, 35, by = 1)) +
 	   		  labs(x = "organ", y = "log2(CPM)", fill = "") +
-			  annotate(geom = "text", x = 1.5, y = 14, label=paste0("adj. p value: ", corrected_pval)) +
+			  annotate(geom = "text", x = 1.5, y = 13, label=paste0("adj. p value: ", corrected_pval)) +
 	   		  ggtitle(paste0("Violin plot of ", GENE, " expression after blocking by batch via voom()")) 
-	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_violin_plots4/", GENE, ".png"), device="png")
+	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_violin_plots2/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 plots
