@@ -76,7 +76,7 @@ organs1 <- ldply(contained, data.frame)
 # Subset to the range of expected values
 striated <- subset(organs1, organs1$fitted_values > 26.8)
 # Write to file
-write.table(striated, "/scratch/mjpete11/linear_models/data/striated_voom_batch.csv", sep=",")
+write.table(striated, "/scratch/mjpete11/linear_models/data/striated_2SRI.csv", sep=",")
 
 # Remove samples >6 standard deviations away
 median(organs1$fitted_values) # 2.79
@@ -119,14 +119,14 @@ violin_plots <- function(GENE){
 	geom_jitter(width=0.3) +
 	stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.1, alpha=0.1) +
 	#annotate(geom = "text", x = 1.5, y = 19, label=paste0("p value: ",corrected_pval)) +
-	annotate(geom = "text", x = 1.5, y = max(organs1$fitted_values)+5, label=paste0("p value: ",corrected_pval)) +
+	annotate(geom = "text", x = 1.5, y = 34, label=paste0("p value: ",corrected_pval)) +
 	#ylim(c(0,30)) +
 	ylab("log2(CPM)") +
 	xlab("organ") +
-#	scale_y_continuous(limits = c(-20, 20), expand = c(0,0), breaks = seq(-20, 20, by = 1)) +
+	scale_y_continuous(limits = c(-35, 35), expand = c(0,0), breaks = seq(-35, 35, by = 1)) +
 #	scale_y_continuous(breaks=scales::pretty_breaks(n=20)) + # Add more y-axis tick marks
 	ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver after 2SRI")) 
-	ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_combat_seq_violin_plots1/", GENE, ".png"), p, device="png")
+	ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_combat_seq_violin_plots/", GENE, ".png"), p, device="png")
 }
 plots <- Map(violin_plots, GENE=SLC)
 violin_plots(GENE="SLC25A1", DATA=organs)
