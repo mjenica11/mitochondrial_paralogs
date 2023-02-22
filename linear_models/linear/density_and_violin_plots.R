@@ -74,9 +74,7 @@ organs1 <- ldply(contained, data.frame)
 
 # Write the striated samples to file
 # Subset to the range of expected values
-striated <- subset(organs1, organs1$fitted_values > 26.8)
-# Write to file
-write.table(striated, "/scratch/mjpete11/linear_models/data/striated_2SRI.csv", sep=",")
+# I don't think there are any but my wifi sucks and I can't see the plots rn
 
 # Remove samples >6 standard deviations away
 median(organs1$fitted_values) # 2.79
