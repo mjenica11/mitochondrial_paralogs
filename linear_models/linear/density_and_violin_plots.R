@@ -78,15 +78,18 @@ organs1 <- ldply(contained, data.frame)
 
 # Remove samples >6 standard deviations away
 median(organs1$fitted_values) # 2.79
+mean(organs1$fitted_values) # 3.96
 sd(organs1$fitted_values) # 4.00 
 sd(organs1$fitted_values) * 6 # +/- 24.0 
+above <- 3.96 + 24.0 # 27.96
+below <- 3.96 - 24.0 # -20.04
 
 # Are there any samples outside of this range?
 range(organs1$fitted_values) # -1.62 to 29.0 
 
 # Number of samples outside of this range
-outlier_above <- organs1[organs1$fitted_values > 26.8,] # 1 sample at 29.0 log2(CPM)
-outlier_below <- organs1[organs1$fitted_values < -21.2,] # 0 samples 
+outlier_above <- organs1[organs1$fitted_values > 27.96,] # 1 sample at 29.0 log2(CPM)
+outlier_below <- organs1[organs1$fitted_values < -20.04,] # 0 samples 
 
 # Drop outliers
 organs2 <- organs1[-1012,] 
