@@ -104,18 +104,21 @@ organs <- read.csv("/scratch/mjpete11/linear_models/data/organs.csv", sep=",")
 # Write a list of striated samples (all have the same expression values)
 # Subset to the range of expected values
 striated <- subset(organs, organs$log2_cpm >=-5 & organs$log2_cpm < -4.5)
-# Drop unnecessary column
-striated$value <- NULL
-# Write to file
-write.table(striated, "/scratch/mjpete11/linear_models/data/striated_no_batch.csv", sep=",")
 
 # Remove samples >6 standard deviations away
 median(organs$log2_cpm) # 3.71
 sd(organs$log2_cpm) # 3.64 
-sd(organs$log2_cpm) * 6 # +/- 21.82 
+sd(organs$log2_cpm) * 6 # +/- 21.8 
 
 # Are there any samples outside of this range?
-range(organs$log2_cpm) # -4.88 to 12.4
+range(organs$log2_cpm) # -4.88 to 12.4 
+
+# Number of samples outside of this range
+outlier_above <- organs[organs$log2_cpm > 21.8,] # 0 sample  
+outlier_below <- organs[organs$log2_cpm < -21.8,] # 0 samples 
+
+# Write to file
+write.table(striated, "/scratch/mjpete11/linear_models/data/striated_no_batch.csv", sep=",")
 
 # Details for plots
 range(organs$log2_cpm)
@@ -133,11 +136,12 @@ violin <- function(GENE){
        		  stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
 	   		  scale_fill_manual(values = c("lightgreen", "purple")) +
 	   		  geom_jitter(size = 1, alpha = 0.9) +
-#       		  scale_y_continuous(limits = c(-20, 20), expand = c(0,0), breaks = seq(-20, 20, by = 1)) +
+       		  scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
+			   			       breaks = seq(-35, 35, by = 1)) +
 	   		  labs(x = "organ", y = "log2(CPM)", fill = "") +
-			  annotate(geom = "text", x = 1.5, y = max(organs$log2_cpm)+5, label=paste0("adj. p value: ", corrected_pval)) +
+			  annotate(geom = "text", x = 1.5, y = 34, label=paste0("adj. p value: ", corrected_pval)) +
 	   		  ggtitle(paste0("Violin plot of ", GENE, " expression without batch correction")) 
-	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/no_batch_violin_plots_no_ylim/", GENE, ".png"), device="png")
+	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/no_batch_violin_plots/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
