@@ -20,7 +20,7 @@ counts$V1 <- NULL
 
 # List of SLC25 paralogs
 SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
-		 "SLC5A7", "UCP1", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
+		 "UCP1", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
 		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
 		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
 		 "SLC25A23", "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
@@ -59,6 +59,10 @@ liver3 <- cbind('gene'=sub_df$'Description', liver2)
 heart3$organ <- 'heart' 
 liver3$organ <- 'liver' 
 
+# Drop the extra row 
+heart3 <- heart3[-c(54),]
+liver3 <- liver3[-c(54),]
+
 # Reshape dataframe so it can be converted to a design matrix object
 heart4 <- melt(data = heart3,
 			   id.vars = c("gene", "organ"),
@@ -84,13 +88,53 @@ liver4$SUBJID <- str_sub(liver4$SAMPID, start=1L, end=10L)
 # e.g. paired samples
 organs_tmp <- merge(heart4, liver4, by="SUBJID") 
 length(unique(organs_tmp$SUBJID)) # 148 individuals
+
+# Split wide df into separate dfs so they can be recombined into a long format df
 tmp1 <- organs_tmp[,c("SUBJID", "gene.x", "organ.x", "SAMPID.x", "value.x")]
 tmp2 <- organs_tmp[,c("SUBJID", "gene.y", "organ.y", "SAMPID.y", "value.y")]
-colnames(tmp1) <- c("SUBJID", "gene", "organ", "SUBJID", "value")
-colnames(tmp2) <- c("SUBJID", "gene", "organ", "SUBJID", "value")
-organs0 <- rbind(tmp1, tmp2)
-colnames(organs0)[4] <- "SAMPID"
-organs <- organs0[!duplicated(organs0), ]
+
+# Rename columns to facilitate binding
+colnames(tmp1) <- c("SUBJID", "gene", "organ", "SAMPID", "value")
+colnames(tmp2) <- c("SUBJID", "gene", "organ", "SAMPID", "value")
+
+# Are there any duplicated rows?
+any(duplicated(tmp1)) # TRUE
+any(duplicated(tmp2)) # TRUE
+
+# Drop duplicate rows
+tmp1_2 <- tmp1[!duplicated(tmp1),]
+tmp2_2 <- tmp2[!duplicated(tmp2),]
+
+# Are there any duplicated rows?
+any(duplicated(tmp1_2)) # FALSE 
+any(duplicated(tmp2_2)) # FALSE
+
+# Add row number column to facilitate vertical binding
+tmp1_2$index <- seq(from=1, to=nrow(tmp1_2), by=1) 
+tmp2_2$index <- seq(from=1, to=nrow(tmp2_2), by=1) 
+
+# Do the row indices exactly match?
+all(tmp1_2$index==tmp2_2$index)==TRUE # TRUE
+
+# Do the heart and liver dfs have the same number of rows?
+nrow(tmp1_2)==nrow(tmp2_2) # TRUE
+
+# Delete some old object to open space
+rm(counts)
+rm(tmp1)
+rm(tmp2)
+
+# Bind liver and heart dfs vertically 
+organs <- rbind(tmp1_2, tmp2_2)
+
+#organs <- merge(tmp1, tmp2, by=c("SUBJID"))
+nrow(organs)==nrow(tmp1_2)+nrow(tmp2_2) # TRUE
+any(duplicated(organs)) # FALSE
+
+# Expected number of rows?
+148 * 53 * 2 # 15,688
+nrow(organs)==15688 # TRUE
+any(duplicated(organs)) # FALSE
 
 # Convert the counts to log2(CPM) scale
 organs$log2_cpm <- cpm(organs$value, log=TRUE)
@@ -103,15 +147,26 @@ organs <- read.csv("/scratch/mjpete11/linear_models/data/organs.csv", sep=",")
 
 # Write a list of striated samples (all have the same expression values)
 # Subset to the range of expected values
-striated <- subset(organs, organs$log2_cpm >=-5 & organs$log2_cpm < -4.5)
+striated <- organs[organs$log2_cpm < -4.5,]
+#striated <- subset(organs, organs$log2_cpm >=-5 & organs$log2_cpm < -4.5)
+
+# Write distribution of gene values to file
+write.table(subset(striated, gene=="SLC25A52"), "/scratch/mjpete11/linear_models/data/striated_A52_no_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="UCP1"), "/scratch/mjpete11/linear_models/data/striated_UCP1_no_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A31"), "/scratch/mjpete11/linear_models/data/striated_A31_no_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A47"), "/scratch/mjpete11/linear_models/data/striated_A47_no_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A2"), "/scratch/mjpete11/linear_models/data/striated_A2_no_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A48"), "/scratch/mjpete11/linear_models/data/striated_A48_no_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A21"), "/scratch/mjpete11/linear_models/data/striated_A21_no_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A41"), "/scratch/mjpete11/linear_models/data/striated_A41_no_batch.csv", sep=",", row.names=FALSE)
 
 # Remove samples >6 standard deviations away
-median(organs$log2_cpm) # 3.71
-mean(organs$log2_cpm) # 3.03
-sd(organs$log2_cpm) # 3.64 
-sd(organs$log2_cpm) * 6 # +/- 21.8 
-above <- 3.03 + 21.8 # 24.83
-below <- 3.03 - 21.8 # -18.77
+median(organs$log2_cpm) # 3.87
+mean(organs$log2_cpm) # 3.29
+sd(organs$log2_cpm) # 3.43 
+sd(organs$log2_cpm) * 6 # +/- 20.6 
+above <- 3.29 + 20.6 # 24.83
+below <- 3.29 - 20.6 # -18.77
 
 # Are there any samples outside of this range?
 range(organs$log2_cpm) # -4.88 to 12.4 
@@ -119,9 +174,6 @@ range(organs$log2_cpm) # -4.88 to 12.4
 # Number of samples outside of this range
 outlier_above <- organs[organs$log2_cpm > 24.83,] # 0 sample  
 outlier_below <- organs[organs$log2_cpm < -18.77,] # 0 samples 
-
-# Write to file
-write.table(striated, "/scratch/mjpete11/linear_models/data/striated_no_batch.csv", sep=",")
 
 # Details for plots
 range(organs$log2_cpm)
@@ -139,12 +191,12 @@ violin <- function(GENE){
        		  stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
 	   		  scale_fill_manual(values = c("lightgreen", "purple")) +
 	   		  geom_jitter(size = 1, alpha = 0.9) +
-       		  scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
-			   			       breaks = seq(-35, 35, by = 1)) +
+#       		  scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
+#			   			       breaks = seq(-35, 35, by = 1)) +
 	   		  labs(x = "organ", y = "log2(CPM)", fill = "") +
 			  annotate(geom = "text", x = 1.5, y = 34, label=paste0("adj. p value: ", corrected_pval)) +
 	   		  ggtitle(paste0("Violin plot of ", GENE, " expression without batch correction")) 
-	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/no_batch_violin_plots/", GENE, ".png"), device="png")
+	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/no_batch_violin_plots_no_ylim/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
