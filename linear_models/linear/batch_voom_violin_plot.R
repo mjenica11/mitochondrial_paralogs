@@ -73,6 +73,10 @@ liver3 <- cbind('gene'=voom_mat$'Description', liver2)
 heart3$organ <- 'heart' 
 liver3$organ <- 'liver' 
 
+# Drop the extra row
+heart3 <- heart3[-c(54),]
+liver3 <- liver3[-c(54),]
+
 # Reshape dataframe so that gene, organ, sample ID and voom adjusted values
 # are columns
 heart4 <- melt(data = heart3,
@@ -99,17 +103,56 @@ liver4$SUBJID <- str_sub(liver4$SAMPID, start=1L, end=10L)
 # e.g. paired samples
 organs_tmp <- merge(heart4, liver4, by="SUBJID") 
 length(unique(organs_tmp$SUBJID)) # 148 individuals
+
+# Split wide df into separate dfs so they can be recombined into a long format df
 tmp1 <- organs_tmp[,c("SUBJID", "gene.x", "organ.x", "SAMPID.x", "value.x")]
 tmp2 <- organs_tmp[,c("SUBJID", "gene.y", "organ.y", "SAMPID.y", "value.y")]
-colnames(tmp1) <- c("SUBJID", "gene", "organ", "SUBJID", "value")
-colnames(tmp2) <- c("SUBJID", "gene", "organ", "SUBJID", "value")
-organs0 <- rbind(tmp1, tmp2)
-colnames(organs0)[4] <- "SAMPID"
-organs <- organs0[!duplicated(organs0),]
+
+# Rename columns to facilitate binding
+colnames(tmp1) <- c("SUBJID", "gene", "organ", "SAMPID", "value")
+colnames(tmp2) <- c("SUBJID", "gene", "organ", "SAMPID", "value")
+
+# Are there any duplicated rows?
+any(duplicated(tmp1)) # TRUE
+any(duplicated(tmp2)) # TRUE
+
+# Drop duplicate rows
+tmp1_2 <- tmp1[!duplicated(tmp1),]
+tmp2_2 <- tmp2[!duplicated(tmp2),]
+
+# Are there any duplicated rows?
+any(duplicated(tmp1_2)) # FALSE 
+any(duplicated(tmp2_2)) # FALSE
+
+# Add row number column to facilitate vertical binding
+tmp1_2$index <- seq(from=1, to=nrow(tmp1_2), by=1) 
+tmp2_2$index <- seq(from=1, to=nrow(tmp2_2), by=1) 
+
+# Do the row indices exactly match?
+all(tmp1_2$index==tmp2_2$index)==TRUE # TRUE
+
+# Do the heart and liver dfs have the same number of rows?
+nrow(tmp1_2)==nrow(tmp2_2) # TRUE
+
+# Delete some old objects to open space
+rm(voom_mat)
+rm(voom_matrix)
+rm(tmp1)
+rm(tmp2)
+
+# Bind liver and heart dfs vertically 
+organs <- rbind(tmp1_2, tmp2_2)
+
+#organs <- merge(tmp1, tmp2, by=c("SUBJID"))
+nrow(organs)==nrow(tmp1_2)+nrow(tmp2_2) # TRUE
+any(duplicated(organs)) # FALSE
 
 # Are the nrow as expected?
 dim(organs) # 15688 5
 148 * 53 * 2 # 148 individuals x 53 genes x 2 samples per individual = 15688 expression values
+
+# Rename the 'value' column to 'log2_cpm'
+colnames(organs)[5] <- "log2_cpm"
 
 # Write organs df to file
 write.table(organs, "/scratch/mjpete11/linear_models/data/batch_voom_organs.csv", sep=",")
@@ -117,18 +160,30 @@ write.table(organs, "/scratch/mjpete11/linear_models/data/batch_voom_organs.csv"
 # Read organs df back in
 organs <- read.csv("/scratch/mjpete11/linear_models/data/batch_voom_organs.csv", sep=",")
 
+# How many unique samples are there?
+length(unique(organs$SAMPID)) # 296
+
 # Write the striated samples to file
 # Subset to the range of expected values
-striated <- subset(organs, organs$value > -7 & organs$value < -6.8)
-nrow(striated) # 967 genes
-# Write to file
-write.table(striated, "/scratch/mjpete11/linear_models/data/striated_voom_batch.csv", sep=",")
+#striated <- subset(organs, organs$value > -7 & organs$value < -6.8)
+striated <- organs[organs$log2_cpm < -6.8,]
+unique(striated$gene) # UCP1, A52, A31, A2, A47, A48, A21, A41
+
+# Write distribution of gene values to file
+write.table(subset(striated, gene=="UCP1"), "/scratch/mjpete11/linear_models/data/striated_UCP1_batch_voom.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A52"), "/scratch/mjpete11/linear_models/data/striated_A52_batch_voom.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A31"), "/scratch/mjpete11/linear_models/data/striated_A31_batch_voom.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A2"), "/scratch/mjpete11/linear_models/data/striated_A2_batch_voom.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A47"), "/scratch/mjpete11/linear_models/data/striated_A47_batch_voom.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A48"), "/scratch/mjpete11/linear_models/data/striated_A48_batch_voom.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A21"), "/scratch/mjpete11/linear_models/data/striated_A21_batch_voom.csv", sep=",", row.names=FALSE)
+write.table(subset(striated, gene=="SLC25A41"), "/scratch/mjpete11/linear_models/data/striated_A41_batch_voom.csv", sep=",", row.names=FALSE)
 
 # Remove samples >6 standard deviations away
-median(organs$value) # 3.68
-mean(organs$value) # 2.85
-sd(organs$value) # 3.88 
-sd(organs$value) * 6 # +/- 23.3
+median(organs$value) # 3.74
+mean(organs$value) # 3.04
+sd(organs$value) # 3.67 
+sd(organs$value) * 6 # +/- 22.04
 above <- 2.85 + 23.3 # 26.15
 below <- 2.85 - 23.3 # -20.45
 
@@ -140,28 +195,35 @@ outlier_above <- organs[organs$value > 26.15,] # 0 samples
 outlier_below <- organs[organs$value < -20.45,] # 0 samples 
 
 # Subset one gene for the test plot
-test <- subset(organs, gene %in% c("SLC25A4"))
+test <- subset(organs, gene %in% c("SLC25A6"))
 
-# Test violin plot with boxplots of standard deviations
-ggplot(test, aes(x = organ, y = value, fill = organ)) +
-	   geom_violin(trim = FALSE) +
-       stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2) +
-	   scale_fill_manual(values = c("lightgreen", "purple")) +
-	   geom_jitter(size = 3, position = position_dodge(0.7), alpha = 0.3) +
-       scale_y_continuous(limits = c(3, 12), expand = c(0,0),
-						  breaks = round(seq(min(organs$value), max(organs$value), by = 0.5))) +
-	   labs(x = "organ", y = "log2(CPM)", fill = "")
-	   ggtitle(paste0("Violin plot of SLC expression between heart and liver after blocking by batch via limma::voom()")) 
-	   ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_violin_plots4/test.png"), device="png")
+# Test violin plot 
+dat0 <- organs %>% filter(gene=="SLC25A6")
+dat <- unique(dat0) 
+p_val <- wilcox.test(formula=value~organ, data=dat, paired=TRUE, exact=TRUE)$p.value
+n_tests <- 53
+corrected_pval <- p.adjust(p_val, method="bonferroni", n=n_tests)
+p <- ggplot(dat, aes(x = organ, y = value, fill = organ)) +
+geom_violin(trim = FALSE) +
+stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
+scale_fill_manual(values = c("lightgreen", "purple")) +
+geom_jitter(size = 1, alpha = 0.9) +
+#scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
+#			       breaks = seq(-35, 35, by = 1)) +
+labs(x = "organ", y = "log2(CPM)", fill = "") +
+annotate(geom = "text", x = 1.5, y = 13, label=paste0("adj. p value: ", corrected_pval)) +
+ggtitle(paste0("Violin plot of SLC25A6 expression between heart and liver after blocking by batch via limma::voom()")) 
+ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_violin_plots4/SLC25A6.png"), device="png")
 
 # Function to plot violin plots
+rm(plots)
 rm(violin)
 violin <- function(GENE){
 		 dat <- organs %>% filter(gene==GENE)
-         p_val <- wilcox.test(formula=value~organ, data=dat, paired=TRUE, exact=TRUE)$p.value
+         p_val <- wilcox.test(formula=log2_cpm~organ, data=dat, paired=TRUE, exact=TRUE)$p.value
 	     n_tests <- 53
 	     corrected_pval <- p.adjust(p_val, method="bonferroni", n=n_tests)
-	     p <- ggplot(dat, aes(x = organ, y = value, fill = organ)) +
+	     p <- ggplot(dat, aes(x = organ, y = log2_cpm, fill = organ)) +
 	   	  	  geom_violin(trim = FALSE) +
        		  stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
 	   		  scale_fill_manual(values = c("lightgreen", "purple")) +
@@ -171,7 +233,7 @@ violin <- function(GENE){
 	   		  labs(x = "organ", y = "log2(CPM)", fill = "") +
 			  annotate(geom = "text", x = 1.5, y = 13, label=paste0("adj. p value: ", corrected_pval)) +
 	   		  ggtitle(paste0("Violin plot of ", GENE, " expression after blocking by batch via voom()")) 
-	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_violin_plots2/", GENE, ".png"), device="png")
+	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_batch_violin_plots1/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 plots
