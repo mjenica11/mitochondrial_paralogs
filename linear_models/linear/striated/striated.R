@@ -45,8 +45,23 @@ res <- Reduce(function(x, y) merge(x, y, all = TRUE), lst)
 res0 <- res[duplicated(res$SAMPID),]
 head(res0)
 
+# Are there any samples that are present in one condition (e.g. no batch correction)
+# vs another (e.g. blocking for batch by voom)
+#res2 <- !res0$SAMPID %in% duplicated(res0$SAMPID) 
+lst1 <- list(no_batch_A52, no_batch_UCP1, no_batch_A31, no_batch_A47, 
+			no_batch_A2, no_batch_A48, no_batch_A21, no_batch_A41)
+
+lst2 <- list(batch_A52, batch_UCP1, batch_A31, batch_A2,
+			batch_A47, batch_A48, batch_A21, batch_A41) 
+
+res_no_batch <- Reduce(function(x, y) merge(x, y, all = TRUE), lst1)
+res_batch <- Reduce(function(x, y) merge(x, y, all = TRUE), lst2)
+
+samples <- unique(res_batch$SAMPID)
+
+any(!res_no_batch$SAMPID %in% samples)==TRUE # FALSE
+
 # Sort the df rows by the sample IDs
-rm(res1)
 res1 <- res0[order(res0$SAMPID),]
 head(res1)
 tail(res1)
