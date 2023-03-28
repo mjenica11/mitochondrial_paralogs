@@ -79,25 +79,25 @@ organs1 <- ldply(contained, data.frame)
 # There are none
 
 # Remove samples >6 standard deviations away
-median(organs1$fitted_values) # 2.79
-mean(organs1$fitted_values) # 3.96
-sd(organs1$fitted_values) # 4.00 
-sd(organs1$fitted_values) * 6 # +/- 24.0 
-above <- 3.96 + 24.0 # 27.96
-below <- 3.96 - 24.0 # -20.04
+median(organs1$counts) # 801
+mean(organs1$counts) # 3356
+sd(organs1$counts) # 9134 
+sd(organs1$counts) * 6 # +/- 54804 
+above <- 3356 + 54804 # 58160
+below <- 3356 - 54804 # -51448 but we will cap at 0
 
 # Are there any samples outside of this range?
-range(organs1$fitted_values) # -1.62 to 29.0 
+range(organs1$counts) # 0 to 229,728 
 
 # Number of samples outside of this range
-outlier_above <- organs1[organs1$fitted_values > 27.96,] # 1 sample at 29.0 log2(CPM)
-outlier_below <- organs1[organs1$fitted_values < -20.04,] # 0 samples 
+outlier_above <- organs1[organs1$counts > 58160,] # 100 samples 
+outlier_below <- organs1[organs1$counts < 0,] # 0 samples 
 
 # Drop outliers
-organs2 <- organs1[-1012,] 
+organs2 <- organs1[!(row.names(organs1) %in% row.names(outlier_above)),]
 
 # Number of samples dropped should be equal to 97
-nrow(organs1) - nrow(organs2)== 1 # TRUE
+nrow(organs1) - nrow(organs2)== 100 # TRUE
 
 # How many zeros were present before applying voom() but after filtering?
 nrow(organs1[organs1$counts==0,]) # 1262
@@ -132,9 +132,9 @@ ZINB_violin_plots <- function(GENE){
 	scale_fill_manual(values=c("lightgreen", "purple")) +
 	geom_jitter(width=0.3) +
 	stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.1, alpha=0.1) +
-	annotate(geom = "text", x = 1.5, y = max(dat3$counts)+3, label=paste0("p value: ",corrected_pval)) +
+	annotate(geom = "text", x = 1.5, y = max(dat3$counts)+5, label=paste0("p value: ",corrected_pval)) +
 	#ylim(c(0,30)) +
-	ylab("log2(CPM)") +
+	ylab("counts") +
 	xlab("organ") +
 #	scale_y_continuous(limits = c(-35, 35), expand = c(0,0), breaks = seq(-35, 35, by = 1)) +
 	theme(plot.title = element_textbox_simple(size=10)) + # automatically wrap long titles
@@ -181,7 +181,7 @@ NB_violin_plots <- function(GENE){
 	stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.1, alpha=0.1) +
 	annotate(geom = "text", x = 1.5, y = max(dat3$counts)+5, label=paste0("p value: ",corrected_pval)) +
 	#ylim(c(0,30)) +
-	ylab("log2(CPM)") +
+	ylab("counts") +
 	xlab("organ") +
 #	scale_y_continuous(limits = c(-35, 35), expand = c(0,0), breaks = seq(-35, 35, by = 1)) +
 	theme(plot.title = element_textbox_simple(size=10)) + # automatically wrap long titles
