@@ -169,6 +169,10 @@ length(unique(organs$SAMPID)) # 296
 striated <- organs[organs$log2_cpm < -6.8,]
 unique(striated$gene) # UCP1, A52, A31, A2, A47, A48, A21, A41
 
+# Subset the non-striated samples
+'%ni%' <- Negate('%in%')
+not_striated <- organs[organs$gene %ni% striated$gene,]
+
 # Write distribution of gene values to file
 write.table(subset(striated, gene=="UCP1"), "/scratch/mjpete11/linear_models/data/striated_UCP1_batch_voom.csv", sep=",", row.names=FALSE)
 write.table(subset(striated, gene=="SLC25A52"), "/scratch/mjpete11/linear_models/data/striated_A52_batch_voom.csv", sep=",", row.names=FALSE)
@@ -178,6 +182,54 @@ write.table(subset(striated, gene=="SLC25A47"), "/scratch/mjpete11/linear_models
 write.table(subset(striated, gene=="SLC25A48"), "/scratch/mjpete11/linear_models/data/striated_A48_batch_voom.csv", sep=",", row.names=FALSE)
 write.table(subset(striated, gene=="SLC25A21"), "/scratch/mjpete11/linear_models/data/striated_A21_batch_voom.csv", sep=",", row.names=FALSE)
 write.table(subset(striated, gene=="SLC25A41"), "/scratch/mjpete11/linear_models/data/striated_A41_batch_voom.csv", sep=",", row.names=FALSE)
+
+# These are the genes from the non-batch corrected heart and liver samples
+# that did not have an excess of zero values (i.e. the "non-striated" samples)
+write.table(subset(not_striated, gene=="SLC25A1"), "/scratch/mjpete11/linear_models/data/A1_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A3"), "/scratch/mjpete11/linear_models/data/A3_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A4"), "/scratch/mjpete11/linear_models/data/A4_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A5"), "/scratch/mjpete11/linear_models/data/A5_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A6"), "/scratch/mjpete11/linear_models/data/A6_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="UCP2"), "/scratch/mjpete11/linear_models/data/UCP2_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="UCP3"), "/scratch/mjpete11/linear_models/data/UCP3_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A10"), "/scratch/mjpete11/linear_models/data/A10_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A11"), "/scratch/mjpete11/linear_models/data/A11_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A12"), "/scratch/mjpete11/linear_models/data/A12_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A13"), "/scratch/mjpete11/linear_models/data/A13_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A14"), "/scratch/mjpete11/linear_models/data/A14_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A15"), "/scratch/mjpete11/linear_models/data/A15_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A16"), "/scratch/mjpete11/linear_models/data/A16_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A17"), "/scratch/mjpete11/linear_models/data/A17_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A18"), "/scratch/mjpete11/linear_models/data/A18_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A19"), "/scratch/mjpete11/linear_models/data/A19_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A20"), "/scratch/mjpete11/linear_models/data/A20_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A22"), "/scratch/mjpete11/linear_models/data/A22_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A23"), "/scratch/mjpete11/linear_models/data/A23_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A24"), "/scratch/mjpete11/linear_models/data/A24_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A25"), "/scratch/mjpete11/linear_models/data/A25_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A26"), "/scratch/mjpete11/linear_models/data/A26_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A27"), "/scratch/mjpete11/linear_models/data/A27_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A28"), "/scratch/mjpete11/linear_models/data/A28_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A29"), "/scratch/mjpete11/linear_models/data/A29_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A30"), "/scratch/mjpete11/linear_models/data/A30_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A32"), "/scratch/mjpete11/linear_models/data/A32_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A33"), "/scratch/mjpete11/linear_models/data/A33_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A34"), "/scratch/mjpete11/linear_models/data/A34_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A35"), "/scratch/mjpete11/linear_models/data/A35_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A36"), "/scratch/mjpete11/linear_models/data/A36_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A37"), "/scratch/mjpete11/linear_models/data/A37_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A38"), "/scratch/mjpete11/linear_models/data/A38_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A39"), "/scratch/mjpete11/linear_models/data/A39_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A40"), "/scratch/mjpete11/linear_models/data/A40_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A42"), "/scratch/mjpete11/linear_models/data/A41_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A43"), "/scratch/mjpete11/linear_models/data/A43_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A44"), "/scratch/mjpete11/linear_models/data/A44_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A45"), "/scratch/mjpete11/linear_models/data/A45_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A46"), "/scratch/mjpete11/linear_models/data/A46_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A49"), "/scratch/mjpete11/linear_models/data/A49_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A50"), "/scratch/mjpete11/linear_models/data/A50_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A51"), "/scratch/mjpete11/linear_models/data/A51_batch.csv", sep=",", row.names=FALSE)
+write.table(subset(not_striated, gene=="SLC25A53"), "/scratch/mjpete11/linear_models/data/A53_batch.csv", sep=",", row.names=FALSE)
 
 # Remove samples >6 standard deviations away
 median(organs$value) # 3.74
