@@ -23,14 +23,21 @@ not_zero_inflated_genes <- c("SLC25A1", "SLC25A3", "SLC25A4", "SLC25A5",
 # Read in voom quantile normalized counts
 organs <- fread("/scratch/mjpete11/linear_models/data/voom_qnorm_counts1.csv", sep=",") # float
 
-# List of all samples
-all_samples <- colnames(filtered_counts)[3:ncol(filtered_counts)]
-
-# Values of zero-inflated SLCs 
+# Values of zero-inflated and not zero-inflated SLCs 
 zero_inflated_counts <- subset(organs, subset=gene  %in% zero_inflated_genes)
-zero_inflated_gene_correlations <- cor(x=zero_inflated_counts$counts, y=zero_inflated_counts$SAMPID)
+not_zero_inflated_counts <- subset(organs, subset=gene  %in% not_zero_inflated_genes)
 
-not_zero_inflated_gene_correlations <- cor(x=not_zero_inflated_genes, y=all_samples)
+# Encode samples as numeric so the correlation function can be applied
+zero_inflated_encoded_samples <- match(zero_inflated_counts$SAMPID, unique(zero_inflated_counts$SAMPID))
+not_zero_inflated_encoded_samples <- match(not_zero_inflated_counts$SAMPID, unique(not_zero_inflated_counts$SAMPID))
+
+# Correlation between zero inflated genes / non-zero inflated genes and samples
+zero_inflated_gene_correlations <- cor(x=zero_inflated_counts$counts, y=zero_inflated_encoded_samples)
+not_zero_inflated_gene_correlations <- cor(x=not_zero_inflated_counts$counts, y=not_zero_inflated_encoded_samples)
+
+# Write to file
+dat <- data.frame(not_zero_inflated_gene_correlations, zero_inflated_gene_correlations)
+write.csv(dat, "/scratch/mjpete11/linear_models/data/zero_inflated_correlations.csv")
 
 #________________________________________________________________________________ 
 # I realized my sparsity matrix idea doesn't make sense because it's specific 
