@@ -23,6 +23,33 @@ not_zero_inflated_genes <- c("SLC25A1", "SLC25A3", "SLC25A4", "SLC25A5",
 # Read in voom quantile normalized counts
 organs <- fread("/scratch/mjpete11/linear_models/data/voom_qnorm_counts1.csv", sep=",") # float
 
+# Range
+range(organs$voom) # 0.49 to 31.7
+range(organs$counts) # 0 to 229728
+
+# How many zero values are there?
+length(which(organs$counts==0)) # 1262
+
+# Try a chi-squared table with two variables
+# Create the zeros variable which takes two values such as if a paralog has
+# an expression value above zero or below zero 
+# Convert counts and sample IDs to factor
+organs$SAMPID <- as.factor(organs$SAMPID)
+organs$zeros <- as.factor(ifelse(organs$counts > 0, "Above", "Below"))
+
+# Make contingency tables
+con1 <- table(organs$SAMPID, organs$zeros)
+addmargins(table(organs$SAMPID, organs$zeros))
+
+# Table of proportions by row
+prop1 <- prop.table(con1, margin=1)
+
+# Write to file
+write.csv(prop1, "/scratch/mjpete11/linear_models/data/two_var_chi_squared_zero_inflated.csv")
+
+############################### OLD ###########################################
+# Tried to do correlation, but that doesn't make sense because 
+# cor() assumes the dummy variables are literal unit differences...
 # Values of zero-inflated and not zero-inflated SLCs 
 zero_inflated_counts <- subset(organs, subset=gene  %in% zero_inflated_genes)
 not_zero_inflated_counts <- subset(organs, subset=gene  %in% not_zero_inflated_genes)
