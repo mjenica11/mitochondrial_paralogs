@@ -44,8 +44,48 @@ addmargins(table(organs$SAMPID, organs$zeros))
 # Table of proportions by row
 prop1 <- prop.table(con1, margin=1)
 
+# Convert to a dataframe
+prop2 <- as.data.frame.matrix(prop1)
+
+# Convert row names to column
+prop2$SAMPID <- row.names(prop2)
+
+# Subset organs dataframe to just the samples present in the prop table
+subset_organs <- organs[organs$SAMPID %in% prop2$SAMPID] 
+
+# Add a column matching the sample ID with the organ so I can tell more easily
+# which samples come from the same individual
+prop3 <- merge(prop2, subset_organs, by="SAMPID", all=TRUE)
+
+# Drop all of the columns that I don't need
+prop3$V1 <- NULL
+prop3$gene <- NULL
+prop3$counts <- NULL
+prop3$SMRIN <- NULL
+prop3$SMTSISCH <- NULL
+prop3$SMGEBTCH <- NULL
+prop3$SMGEBTCHT <- NULL
+prop3$voom <- NULL
+
+# Drop duplicate rows
+prop4 <- unique(prop3)
+
+# Check that the number of rows of the new proportiona tables are double
+# the rows of the first prop table 
+nrow(prop4)==nrow(prop2)*2 # TRUE
+nrow(prop4)==296*2 # TRUE
+
+# Rename the columns
+colnames(prop4) <- c("Sample_ID", "Above_Zero", "Zero", "Subject_ID", "Organ", "Threshold")
+head(prop4)
+
+# Drop unnecessary columns and resulting duplicate rows
+prop4$Threshold <- NULL
+prop5 <- unique(prop4)
+head(prop5)
+
 # Write to file
-write.csv(prop1, "/scratch/mjpete11/linear_models/data/two_var_chi_squared_zero_inflated.csv")
+write.csv(prop5, "/scratch/mjpete11/linear_models/data/two_var_chi_squared_zero_inflated.csv")
 
 ############################### OLD ###########################################
 # Tried to do correlation, but that doesn't make sense because 
