@@ -1,41 +1,132 @@
-# Are the striated samples always the same samples?
+# Is the proportion of zeros relatively equal across heart and liver samples?
 
 # load libraries
 library(tidyr)
 library(dplyr)
 library(data.table)
 
-# Are the striated genes correlating with those samples?
-zero_inflated_genes <- c("SLC25A2", "UCP1", "SLC25A21", "SLC2531", 
-						   "SLC25A41", "SLC25A47", "SLC25A48", "SLC25A52")
-not_zero_inflated_genes <- c("SLC25A1", "SLC25A3", "SLC25A4", "SLC25A5", 
-							   "SLC25A6", "UCP2", "SLC25UCP3", "SLC25A10", 
-							   "SLC25A11", "SLC25A12", "SLC25A13", "SLC25A14", 
-							   "SLC25A15", "SLC25A16", "SLC25A17", "SLC25A18", 
-							   "SLC25A19", "SLC25A20", "SLC25A22", "SLC25A23", 
-							   "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
-							   "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A32",
-				  			   "SLC25A33", "SLC25A34", "SLC25A35", "SLC25A36",
-				  			   "SLC25A37", "SLC25A38", "SLC25A39", "SLC25A40",
-				  			   "SLC25A42", "SLC25A43", "SLC25A44", "SLC25A45", 
-							   "SLC25A46", "SLC25A49", "SLC25A50", "SLC25A51", "SLC25A53")
+# Read in the total filtered counts matrix 
+counts <- fread("/scratch/mjpete11/linear_models/data/filtered_counts.csv", sep=",")
 
-# Read in voom quantile normalized counts
-organs <- fread("/scratch/mjpete11/linear_models/data/voom_qnorm_counts1.csv", sep=",") # float
+# Read in the organs dataframe because it has the heart and liver sample and subject IDs 
+organs <- fread("/scratch/mjpete11/linear_models/data/organs.csv", sep=",") # float
 
-# Range
-range(organs$voom) # 0.49 to 31.7
-range(organs$counts) # 0 to 229728
+# Subset counts that are from heart or liver samples only
+samples <- organs$SAMPID
+class(samples) # character vector
+heart_liver_counts <- counts[,..samples]
+ncol(heart_liver_counts)==length(samples) # TRUE
 
-# How many zero values are there?
-length(which(organs$counts==0)) # 1262
+# Drop duplicate columns
+# Identify duplicate columns
+dup_cols <- colnames(heart_liver_counts)[duplicated(heart_liver_counts)]
 
+# Read in sample attributes files
+metadata <- read.csv("/scratch/mjpete11/linear_models/data/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt", sep="\t")
+
+# Subset heart left ventricle and liver samples into two separate dfs
+heart <- metadata$SAMPID[metadata$SMTSD %in% "Heart - Left Ventricle"]
+liver <- metadata$SAMPID[metadata$SMTSD %in% "Liver"]
+
+# Which heart sample IDs are present in the colnames of the heart_liver_counts df?
+# Instantiate a vector with only those present so the dataframe can be subset
+heart_IDs <- intersect(heart, colnames(heart_liver_counts))
+liver_IDs <- intersect(liver, colnames(heart_liver_counts))
+
+# Split heart and liver counts dataframe into separate dfs by organ
+# Then add the organ variable as a column
+heart_df <- subset(heart_liver_counts, select=heart_IDs)
+dim(heart_df) # 56200 148
+liver_df <- subset(heart_liver_counts, select=liver_IDs)
+dim(liver_df) # 56200 148
+
+# Transpose the dataframe
+heart_df1 <- t(heart_df)
+liver_df1 <- t(liver_df)
+
+# Check that the dimentions are the same
+dim(heart_df1)==dim(liver_df1) # TRUE TRUE
+
+# Create a copy of each matrix, but replace counts with "success" if value
+# is > 0 and "fail" if value is < 0
+# Do for one gene and try apply prop.test()
+heart_gene <- ifelse(heart_df1[,147] > 0, "success", "fail")
+liver_gene <- ifelse(liver_df1[,147] > 0, "success", "fail")
+
+# Sometimes you will only get "success" and the table() step will fail
+# so I will artificially change the last value to "fail"
+# to make sure the function continues
+heart_gene[[148]] <- "fail"
+liver_gene[[148]] <- "fail"
+
+# Convert vectors to factors
+heart_gene <- as.factor(heart_gene)
+liver_gene <- as.factor(liver_gene)
+
+# Make a table of failure and success counts for each gene
+tab <- table(heart_gene, liver_gene)
+tab
+
+# Proportion test
+test <- prop.test(tab)
+test$p.value # 1 --> proportion of zeros for gene 1 are not 
+# sig diff betwen paired heart and liver samples
+
+# Repeat for every gene in the paired heart and liver samples
+chi_squared_function <- function(INDEX){
+	heart_gene_x <- ifelse(heart_df1[,147] > 0, "success", "fail")
+	liver_gene_x <- ifelse(liver_df1[,147] > 0, "success", "fail")
+
+	# Sometimes you will only get "success" and the table() step will fail
+	# so I will artificially change the last value to "fail"
+	# to make sure the function continues
+	heart_gene_x[[148]] <- "fail"
+	liver_gene_x[[148]] <- "fail"
+
+	# Convert vectors to factors
+	heart_gene_x <- as.factor(heart_gene_x)
+	liver_gene_x <- as.factor(liver_gene_x)
+
+
+	# Make a table of failure and success counts for each gene
+	tab_x <- table(heart_gene_x, liver_gene_x)
+	head(tab_x)
+	# Proportion test
+	result <- prop.test(tab_x)
+	return(result$p.value)  
+}
+p_value_lst <- Map(chi_squared_function, INDEX=seq(1, ncol(heart_df), by=1))
+p_value_lst
+
+#rm(chi_squared_function)
+#rm(p_value_lst)
+
+# Convert liof p-values to data.frame 
+p_val_df <- data.frame(matrix(unlist(p_value_lst), nrow=4, byrow=TRUE),stringsAsFactors=FALSE)
+dim(p_val_df)
+p_val_df
+
+# Write to file
+write.csv(p_val_df, "/scratch/mjpete11/linear_models/data/two_var_chi_squared_zero_inflated.csv")
+
+########### OLD ##############################################################
 # Try a chi-squared table with two variables
 # Create the zeros variable which takes two values such as if a paralog has
 # an expression value above zero or below zero 
 # Convert counts and sample IDs to factor
 organs$SAMPID <- as.factor(organs$SAMPID)
 organs$zeros <- as.factor(ifelse(organs$counts > 0, "Above", "Below"))
+
+head(organs)
+tail(organs)
+
+# Drop duplicate rows
+# There will be duplicates because there were 53 genes per sample
+# dropped the 'gene' column label
+organs1 <- unique(organs)
+
+# Double check number of expected rows
+53 * 148 * 2 == nrow(organs1)
 
 # Make contingency tables
 con1 <- table(organs$SAMPID, organs$zeros)
@@ -53,19 +144,11 @@ prop2$SAMPID <- row.names(prop2)
 # Subset organs dataframe to just the samples present in the prop table
 subset_organs <- organs[organs$SAMPID %in% prop2$SAMPID] 
 
-# Add a column matching the sample ID with the organ so I can tell more easily
+# Add a column matching the organ type with the sample so I can tell more easily
 # which samples come from the same individual
+# The proportion of zero to non-zero counts should be relatively
+# similar if the sample comes from the same person
 prop3 <- merge(prop2, subset_organs, by="SAMPID", all=TRUE)
-
-# Drop all of the columns that I don't need
-prop3$V1 <- NULL
-prop3$gene <- NULL
-prop3$counts <- NULL
-prop3$SMRIN <- NULL
-prop3$SMTSISCH <- NULL
-prop3$SMGEBTCH <- NULL
-prop3$SMGEBTCHT <- NULL
-prop3$voom <- NULL
 
 # Drop duplicate rows
 prop4 <- unique(prop3)
@@ -84,10 +167,35 @@ prop4$Threshold <- NULL
 prop5 <- unique(prop4)
 head(prop5)
 
-# Write to file
-write.csv(prop5, "/scratch/mjpete11/linear_models/data/two_var_chi_squared_zero_inflated.csv")
+# chi-sequared won't work because there are values < 5
+# switching to fishers exact test
+# add simulate.p.value parameter because it gets too resource intensive
+#test <- fisher.test(x=heart_df1[,1], y=liver_df1[,1], simulate.p.value=TRUE)
+#test$p.value
+
+# Repeat for every gene and then summarize the p-values into a table
+#fisher_test_function <- function(COLUMN){
+#	result <- fisher.test(x=heart_df1[,COLUMN], y=liver_df1[,COLUMN], simulate.p.value=TRUE)
+#	p_val <- result$p.value
+#	return(p_val)
+#}
+#p_val_lst <- Map(fisher_test_function, COLUMN=1:ncol(heart_df1))
 
 ############################### OLD ###########################################
+# Are the striated genes correlating with those samples?
+zero_inflated_genes <- c("SLC25A2", "UCP1", "SLC25A21", "SLC2531", 
+						   "SLC25A41", "SLC25A47", "SLC25A48", "SLC25A52")
+not_zero_inflated_genes <- c("SLC25A1", "SLC25A3", "SLC25A4", "SLC25A5", 
+							   "SLC25A6", "UCP2", "SLC25UCP3", "SLC25A10", 
+							   "SLC25A11", "SLC25A12", "SLC25A13", "SLC25A14", 
+							   "SLC25A15", "SLC25A16", "SLC25A17", "SLC25A18", 
+							   "SLC25A19", "SLC25A20", "SLC25A22", "SLC25A23", 
+							   "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
+							   "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A32",
+				  			   "SLC25A33", "SLC25A34", "SLC25A35", "SLC25A36",
+				  			   "SLC25A37", "SLC25A38", "SLC25A39", "SLC25A40",
+				  			   "SLC25A42", "SLC25A43", "SLC25A44", "SLC25A45", 
+							   "SLC25A46", "SLC25A49", "SLC25A50", "SLC25A51", "SLC25A53")
 # Tried to do correlation, but that doesn't make sense because 
 # cor() assumes the dummy variables are literal unit differences...
 # Values of zero-inflated and not zero-inflated SLCs 
