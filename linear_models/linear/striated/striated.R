@@ -111,41 +111,46 @@ test <- fisher.test(tab)
 test$p.value
 
 # Function just to extract the tables
-table_function <- function(INDEX){
-	heart_gene_x <- ifelse(heart_df1[,INDEX] > 0, "success", "fail")
-	liver_gene_x <- ifelse(liver_df1[,INDEX] > 0, "success", "fail")
+#table_function <- function(INDEX){
+#	heart_gene_x <- ifelse(heart_df1[,INDEX] > 0, "success", "fail")
+#	liver_gene_x <- ifelse(liver_df1[,INDEX] > 0, "success", "fail")
 
 	# Sometimes you will only get "success" and the table() step will fail
 	# because it requires a 2x2 matrix
 	# so I will artificially change the last value to "fail" and second to last
 	# to "success" to make sure the function continues
-	heart_gene_x[[56200]] <- "fail"
-	liver_gene_x[[56200]] <- "fail"
-	heart_gene_x[[56199]] <- "success"
-	liver_gene_x[[56199]] <- "success"
+#	heart_gene_x[[56200]] <- "fail"
+#	liver_gene_x[[56200]] <- "fail"
+#	heart_gene_x[[56199]] <- "success"
+#	liver_gene_x[[56199]] <- "success"
 
 	# Convert vectors to factors
-	heart_gene_x <- as.factor(heart_gene_x)
-	liver_gene_x <- as.factor(liver_gene_x)
+#	heart_gene_x <- as.factor(heart_gene_x)
+#	liver_gene_x <- as.factor(liver_gene_x)
 
 	# Make a table of failure and success counts for each gene
-	tab_x <- table(heart_gene_x, liver_gene_x)
-	head(tab_x)
-	return(tab_x)
-}
-table_lst <- Map(table_function, INDEX=1:56200)
-table_lst
+#	tab_x <- table(heart_gene_x, liver_gene_x)
+#	head(tab_x)
+#	return(tab_x)
+#}
+#table_lst <- Map(table_function, INDEX=1:56200)
+#table_lst
 
-rm(table_lst)
-rm(table_function)
+# Check if any of the expected values are < 5
+# If so, then try to switch to a Fishers exact test
+#table_lst[[2]] # Yes
+
+#rm(table_lst)
+#rm(table_function)
 
 # Check if the values are all identical
-length(unique(table_lst))==1 # FALSE
+#length(unique(table_lst))==1 # FALSE
 
 # Check if the dimensions are the same for each item
-all(sapply(table_lst, function(x) dim(x)==2))==TRUE # TRUE
+#all(sapply(table_lst, function(x) dim(x)==2))==TRUE # TRUE
 
 # Repeat for every gene in the paired heart and liver samples
+# Switch from prop.test() to fishers exact test
 chi_squared_function <- function(INDEX){
 	heart_gene_x <- ifelse(heart_df1[,INDEX] > 0, "success", "fail")
 	liver_gene_x <- ifelse(liver_df1[,INDEX] > 0, "success", "fail")
@@ -167,7 +172,7 @@ chi_squared_function <- function(INDEX){
 	head(tab_x)
 
 	# Proportion test
-	result <- prop.test(tab_x)
+	result <- fisher.test(tab_x, alternative = c("greater"))
 	return(result$p.value)  
 }
 p_value_lst <- Map(chi_squared_function, INDEX=seq(1, ncol(heart_df), by=1))
@@ -176,8 +181,8 @@ p_value_lst
 # Check if the values are all identical
 length(unique(p_value_lst))==1 # FALSE
 
-rm(chi_squared_function)
-rm(p_value_lst)
+#rm(chi_squared_function)
+#rm(p_value_lst)
 
 # Adjust for multiple testing
 tests <- length(p_value_lst)
@@ -185,10 +190,18 @@ tests <- length(p_value_lst)
 adjusted_p_vals <- lapply(p_value_lst, function(x) x/tests)
 
 # Convert list of p-values to data.frame 
-p_val_df <- data.frame(matrix(unlist(adjusted_p_vals), nrow=4, byrow=TRUE),stringsAsFactors=FALSE)
-dim(p_val_df)
-p_val_df  
+#p_val_df <- data.frame(matrix(unlist(adjusted_p_vals), nrow=4, byrow=TRUE),stringsAsFactors=FALSE)
+#dim(p_val_df)
+#p_val_df  
+
+# Convert list of p-values to table
+p_val_tab <- data.table(do.call(cbind,adjusted_p_vals)) # Every value is unique. Hooray!
+
+# Try different method to convert list to dataframe 
+p_val_df <- do.call(rbind.data.frame, adjusted_p_vals)
+colnames(p_val_df) <- c("p_vals")
 
 # Write to file
 write.csv(p_val_df, "/scratch/mjpete11/linear_models/data/two_var_chi_squared_zero_inflated.csv")
+#write.csv(p_val_tab, "/scratch/mjpete11/linear_models/data/two_var_chi_squared_zero_inflated_tab.csv")
 
