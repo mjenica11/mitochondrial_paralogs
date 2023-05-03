@@ -15,6 +15,7 @@ library(ggtext)
 library(rstatix)
 library(stats)
 library(scales)
+library(edgeR)
 
 # Read in combat_seq normalized counts 
 counts <- fread("/scratch/mjpete11/linear_models/data/combat_seq_filtered.csv", sep=",")
@@ -130,6 +131,10 @@ length(unique(organs_tmp$SUBJID)) # 148 individuals
 # Change the name of 'value' column to 'combat_seq_counts'
 colnames(organs)[5] <- "combat_seq_counts"
 
+# Convert combat_seq adjusted counts to log2 and CPM
+# Values of zero will be set to 2
+organs$log2_cpm <- cpm(organs$combat_seq_counts, log=TRUE, prior.count=2)
+
 # Write organs df to file
 #write.table(organs, "/scratch/mjpete11/linear_models/data/organs_combat_seq.csv", sep=",")
 
@@ -142,23 +147,7 @@ ncol(counts2)==nrow(organs) # TRUE
 
 # Set y lim
 range(organs$combat_seq_counts) # c(0 229728) 
-
-# This is at 5 counts in at least one sample filtering threshold
-# and after adjusting with combat_seq
-
-# Density plot
-#density_plot <- function(GENE){
-#     dat <- organs %>% filter(gene == GENE)
-#     dat2 <- distinct(na.omit(dat))
-#     p <- ggplot(dat2, aes(voom)) +
-#	 geom_density() +
-#     ylab("density") +
-#     xlab("logCPM") +
-#	 coord_cartesian(xlim=c(0,35), ylim=c(0,20)) +
-#     ggtitle(paste0("Density plots of combat_seq voom quantile normalized ", GENE, " expression"))  
-# 	 ggsave(paste0("/scratch/mjpete11/linear_models/linear/voom_qnorm_density_plots3/", GENE, ".png"), p, device="png")
-#}
-#plts <- Map(density_plot, GENE=SLC)
+range(organs$log2_cpm) # c(-4.72, 12.09) 
 
 # Regress out effect of RIN and ischemic time and remove from the model 
 # before making the violin plots
@@ -170,46 +159,32 @@ for (paralog in SLC){
 	datt2 <- na.omit(datt)
 	datt3 <- distinct(na.omit(datt2))
 	# Regress out effect of RIN and ischemic time on SLC
-	model1 <- lm(combat_seq_counts ~ SMRIN + SMTSISCH, data=datt3)
+	model1 <- lm(log2_cpm ~ SMRIN + SMTSISCH, data=datt3)
 	# Add fitted values to dattaframe
 	datt3$resids <- residuals(model1)
 	# Regress organ on SLC using previous fitted regression values as offset
-	model2 <- lm(combat_seq_counts ~ organ + resids, data=datt3)
+	model2 <- lm(log2_cpm ~ organ + resids, data=datt3)
 	# Add fitted values from second linear model to dattaframs
 	datt3$fitted_values <- fitted.values(model2)
 	contained[[paralog]] <- datt3
 }
 organs1 <- ldply(contained, data.frame)  
-
+head(organs1)
 ##### TEST #####
 
 # Write the striated samples to file
 # There are none
 
 # Remove samples >6 standard deviations away
-median(organs1$fitted_values) # 871.51
-mean(organs1$fitted_values) # 3298.56
-sd(organs1$fitted_values) # 8890.20 
-sd(organs1$fitted_values) * 6 # +/- 53341.18 
-above <- 3299 + 53341 # 56640 
-below <- 3299 - 53341 # -50042
+median(organs1$fitted_values) # 3.94
+mean(organs1$fitted_values) # 3.29
+sd(organs1$fitted_values) # 3.52 
+sd(organs1$fitted_values) * 6 # +/- 21.12 
+above <- 3.29 + 21.12 # 24.41 
+below <- 3.29 - 21.12 # -17.83
 
 # Are there any samples outside of this range?
-range(organs1$fitted_values) # -35656 197418 --> Yes 
-
-# Number of samples outside of this range
-outlier_above <- organs1[organs1$fitted_values > 56640,] 
-nrow(outlier_above) # 91 samples
-outlier_below <- organs1[organs1$fitted_values < -50042,]  
-nrow(outlier_below) # 0 samples
-
-# Drop outliers
-rows_to_drop <- row.names(outlier_above)
-organs2 <- organs1[!(row.names(organs1) %in% rows_to_drop),] 
-dim(organs2) # 15893 12
-
-# Number of samples dropped should be equal to 91
-nrow(organs1) - nrow(organs2)== 91  # TRUE
+range(organs1$fitted_values) # -5.56, 11.9 --> No 
 
 # NB violin plots
 # MASS is loaded by pscl, so I have to unload pscl to use MASS::glm.nb
@@ -220,15 +195,15 @@ rm(plots)
 rm(gaussian_2SRI_violin_plots)
 # Negative binomial 2SRI violin and jitter plot function
 gaussian_2SRI_violin_plots <- function(GENE){
-	dat <- organs2 %>% filter(gene == GENE)
+	dat <- organs1 %>% filter(gene == GENE)
     dat2 <- na.omit(dat)
     dat3 <- distinct(na.omit(dat2))
     # Regress out effect of RIN and ischemic time on SLC
-    model1 <- glm(combat_seq_counts ~ SMRIN + SMTSISCH, data=dat3)
+    model1 <- glm(log2_cpm ~ SMRIN + SMTSISCH, data=dat3)
 	# Add fitted values to dataframe
 	dat3$resids <- residuals(model1)
 	# Regress organ on SLC using previous fitted regression values as offset
-	model2 <- glm(combat_seq_counts ~ organ + resids, data=dat3)
+	model2 <- glm(log2_cpm ~ organ + resids, data=dat3)
 	# Add fitted values from second linear model to dataframs
 	dat3$fitted_values <- fitted.values(model2)
 #	p_val <- wilcox.test(formula=fitted_values~organ,data=dat3)$p.value
@@ -241,7 +216,7 @@ gaussian_2SRI_violin_plots <- function(GENE){
 	stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.1, alpha=0.1) +
 #	annotate(geom = "text", x = 1.5, y = 34, label=paste0("p value: ",corrected_pval)) +
 	#ylim(c(0,30)) +
-	ylab("combat_seq_counts") +
+	ylab("log2_cpm") +
 	xlab("organ") +
 #	scale_y_continuous(limits = c(0, 73898), expand = c(0,0), breaks = seq(0, 73898, by = 50)) +
 	theme(plot.title = element_textbox_simple(size=10)) + # automatically wrap long titles
@@ -252,7 +227,7 @@ plots <- Map(gaussian_2SRI_violin_plots, GENE=SLC)
 
 
 
-
+##################### OLD ###################################################
 #rm(plots)
 #rm(NB_violin_plots)
 # Negative binomial 2SRI violin and jitter plot function
