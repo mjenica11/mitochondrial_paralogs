@@ -6,7 +6,7 @@ library(stringr)
 library(tidyr)
 
 # Read in preprocessCore quantile normalized counts
-counts <- fread("/scratch/mjpete11/linear_models/data/limma_quantile_normalized_counts.csv", sep=",") # float
+counts <- fread("/scratch/mjpete11/linear_models/data/voom_quantile_normalized_counts.csv", sep=",") # float
 
 # Drop the index column
 counts$V1 <- NULL
@@ -34,7 +34,7 @@ biomarkers <- c("SLC16A1", "SLC16A2", "HK1", "HK2", "HK3", "GPI", "PFKM",
 				"PDHB", "PDP1", "PDHX", "CS", "ACO1", "ACO2", "IDH3G",
 				"IDH1", "IDH2", "ID3HA", "IDH3B", "OGDH", "SUCLG2",
 				"SUCLG1", "SUCLA2", "SDHB", "SDHD", "SDHA", "SDHC", "SDHAF2",
-				"FH", "MDH1", "MDH2")
+				"FH", "MDH1", "MDH2", "MT-ND1")
 
 genes <- c(SLC, biomarkers)
 
@@ -68,19 +68,18 @@ heart3$organ <- 'heart'
 liver3$organ <- 'liver' 
 
 # Reshape dataframe so it can be converted to a design matrix object
-heart4 <- melt(data = heart3,
+heart4 <- reshape2::melt(data = heart3,
 			   id.vars = c("gene", "organ"),
 			   measure.vars = colnames(heart3)[3:ncol(heart3)-1],
 			   variable.name = "samples",
 			   value.name = "counts")
 
-liver4 <- melt(data = liver3,
+liver4 <- reshape2::melt(data = liver3,
 			   id.vars = c("gene", "organ"),
 			   measure.vars = colnames(liver3)[3:ncol(liver3)-1],
 			   variable.name = "samples",
 			   value.name = "counts")
 
-# Change the name of the 'variable' column to 'SAMPID' to match columns
 colnames(heart4)[3] <- "SAMPID" 
 colnames(liver4)[3] <- "SAMPID" 
 
@@ -128,7 +127,7 @@ organs <- rbind(tmp1, tmp2)
 colnames(organs)[4] <- "SAMPID"
 
 # Write organs df to file
-#write.table(organs, "/scratch/mjpete11/linear_models/data/organs_biomarkers_combat_seq3.csv", sep=",")
+write.table(organs, "/scratch/mjpete11/linear_models/data/organs_biomarkers_combat_seq3.csv", sep=",")
 
 # Read organs df back in
 organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_biomarkers_combat_seq3.csv", sep=",")
@@ -150,10 +149,11 @@ length(unique(organs$SUBJID)) # 148
 #tmp_organs$organ[1:10] <- "liver"
 #tmp_organs$SUBJID <- NULL # Delete unused columns or else glm() complains
 #tmp_organs$SAMPID <- NULL
-tmp_organs <- subset(organs, gene %in% c("SLC25A4", "HK1"))
+tmp_organs <- subset(organs, gene %in% c("SLC25A4", "PFK"))
 tmp_organs$gene <- as.factor(tmp_organs$gene)
 tmp_organs$organ <- as.factor(tmp_organs$organ) # Convert to factor 
 tmp_organs <- tmp_organs[!duplicated(tmp_organs),]
+organs <- organs[!duplicated(organs),]
 
 # Reshape test dataframe; make SLC and biomarker genes into seperate columns
 tmp3 <- spread(tmp_organs, key=gene, value=counts)
@@ -164,7 +164,7 @@ make_dfs <- function(GENE, BIOMARKER){
 	dat <- subset(organs, gene %in% c(GENE, BIOMARKER)) # Subset the genes of interest
 	dat$gene <- as.factor(dat$gene) # Convert to factor
 	dat$organ <- as.factor(dat$organ) # Convert to factor 
-	dat <- dat[!duplicated(dat),] # Drop duplicate rows
+	dat <- dat[!duplicated(dat$SAMPID),] # Drop duplicate rows
 
 	# Reshape test dataframe; make SLC and biomarker genes into seperate columns
 	dat2 <- spread(dat, key=gene, value=counts)
@@ -173,22 +173,45 @@ make_dfs <- function(GENE, BIOMARKER){
 	return(dat3)
 }
 #dats <- Map(make_dfs, GENE=SLC[1])
-dat1 <- make_dfs(GENE=SLC[1], BIOMARKER=biomarkers[1])
 
+dat1 <- subset(organs, gene %in% c("SLC25A6", "MT-ND1"))
+dat1$gene <- as.factor(dat1$gene)
+dat1$organ <- as.factor(dat1$organ)
+dat2 <- dat1[!duplicated(dat1[c(2,3,4)]),]
+dat3 <- spread(dat1, key=gene, value=counts)
+dat4 <- dat3[complete.cases(dat3),]
+head(dat4)
+
+############## By hand since sometime I get singularity errors ###############
+rm(list=c("dat1","Yimp0","impData0","Yfit0","res"))
+which(biomarkers=="MT-ND1")
+which(SLC=="SLC25A6")
+dat1 <- make_dfs(GENE=SLC[6], BIOMARKER=biomarkers[70])
+# Rename MT-DN1 column because the glm function can't detect dashes
+colnames(dat1)[6] <- "MTND1"
+head(dat1)
 # Expand data: Step 1: fit glm
-# Getting the following error: system is computationally singular
-# when I tried SLC16A1 as the mediator variable
-Yimp0 <- glm(organ ~ SLC25A1+ SLC16A1 + SMRIN + SMTSISCH, family="binomial", data=dat1) 
-
+Yimp0 <- glm(organ ~ MTND1 + SLC25A6 + SMRIN + SMTSISCH, family="binomial", data=dat1) 
+attributes(Yimp0)
+head(Yimp0[["effects"]])
 # Expand data: Step 2: impute data 
 impData0 <- neImpute(Yimp0)
-
+head(impData0)
 # Fit the natureal effect model
-Yfit0 <- neModel(organ ~ SLC25A10 + SLC25A11, expData=impData0, se="robust", family="binomial") 
-
+Yfit0 <- neModel(organ ~ MTND10 + MTND11, expData=impData0, se="robust", family="binomial") 
 # Model fit summary
-summary(Yfit0) # Get the natural direct and indirect effect
+summary(neEffdecomp(Yfit0)) # Get the natural direct and indirect effect
 res <- summary(neEffdecomp(Yfit0)) # Get the total effect
+# Write plot to file
+pdf("MTND1_SLC25A6.pdf")
+plot(neEffdecomp(Yfit0), xlab="Effest size estimate", main="MTND1 (A) and SLC25A6 (M)")
+dev.off()
+# Write summary to file
+sink("MTND1_SLC25A6.txt")
+print(res)
+sink()
+############## By hand since sometime I get singularity errors ###############
+
 
 
 # Odds ratio of the natural indirect effect
