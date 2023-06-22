@@ -73,8 +73,8 @@ dim(ordered_expr3) # 51259 296
 all(organs_unique$SAMPID==colnames(ordered_expr3)) # TRUE
 
 # Write design matrix with only the organ and sample ID
-write_tsv(organs_unique, "/scratch/mjpete11/linear_models/data/convert_format/ordered_organs_unique.csv")
+write_tsv(organs_unique, "/scratch/mjpete11/linear_models/data/convert_format/ordered_organs_unique.tsv")
 
 # Expression matrix with the samples in the same order as the design matrix
-write_tsv(ordered_expr3, "/scratch/mjpete11/linear_models/data/convert_format/ordered_combat_seq_filtered.csv")
+write_tsv(ordered_expr3, "/scratch/mjpete11/linear_models/data/convert_format/ordered_combat_seq_filtered.tsv")
 
