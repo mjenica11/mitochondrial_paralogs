@@ -46,7 +46,7 @@ sub_df <- counts[counts$"Description" %in% genes, ]
 setdiff(genes, sub_df$'Description') 
 
 # Write to file
-write.table(sub_df, "/scratch/mjpete11/linear_models/data/biomarkers_sub_df_preprocess.csv", sep=",")
+#write.table(sub_df, "/scratch/mjpete11/linear_models/data/biomarkers_sub_df_preprocess.csv", sep=",")
 
 # Read in sample attributes files
 file2 <- read.csv("/scratch/mjpete11/linear_models/data/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt", sep="\t")
@@ -127,10 +127,10 @@ organs <- rbind(tmp1, tmp2)
 colnames(organs)[4] <- "SAMPID"
 
 # Write organs df to file
-write.table(organs, "/scratch/mjpete11/linear_models/data/organs_biomarkers_combat_seq3.csv", sep=",")
+#write.table(organs, "/scratch/mjpete11/linear_models/data/organs_biomarkers_combat_seq3.csv", sep=",")
 
 # Read organs df back in
-organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_biomarkers_combat_seq3.csv", sep=",")
+#organs <- read.csv("/scratch/mjpete11/linear_models/data/organs_biomarkers_combat_seq3.csv", sep=",")
 
 # How many paired samples (heart and liver from the sample individual) are there?
 length(unique(organs$SUBJID)) # 148
@@ -159,12 +159,25 @@ organs <- organs[!duplicated(organs),]
 tmp3 <- spread(tmp_organs, key=gene, value=counts)
 head(tmp3)
 
+# Test again
+dat1 <- subset(organs, gene %in% c("SLC25A5", "MT-ND1"))
+dat1$gene <- as.factor(dat1$gene)
+dat1$organ <- as.factor(dat1$organ)
+dat2 <- dat1[!duplicated(dat1[c(2,3,4)]),]
+dat3 <- spread(dat2, key=gene, value=counts)
+# Add a column with the pathway state
+dat3$pathway_state <- rep("citrate_cycle", nrow(dat3))
+dat4 <- dat3[complete.cases(dat3),]
+head(dat4)
+############################# TEST ############################################
+
 # Function to make list of dataframes for mediation
 make_dfs <- function(GENE, BIOMARKER){
 	dat <- subset(organs, gene %in% c(GENE, BIOMARKER)) # Subset the genes of interest
 	dat$gene <- as.factor(dat$gene) # Convert to factor
 	dat$organ <- as.factor(dat$organ) # Convert to factor 
-	dat <- dat[!duplicated(dat$SAMPID),] # Drop duplicate rows
+	#dat <- dat[!duplicated(dat$SAMPID),] # Drop duplicate rows
+	dat <- dat[!duplicated(dat[c(2,3,4)]),] # Drop duplicate rows
 
 	# Reshape test dataframe; make SLC and biomarker genes into seperate columns
 	dat2 <- spread(dat, key=gene, value=counts)
@@ -173,46 +186,41 @@ make_dfs <- function(GENE, BIOMARKER){
 	return(dat3)
 }
 #dats <- Map(make_dfs, GENE=SLC[1])
-
-dat1 <- subset(organs, gene %in% c("SLC25A6", "MT-ND1"))
-dat1$gene <- as.factor(dat1$gene)
-dat1$organ <- as.factor(dat1$organ)
-dat2 <- dat1[!duplicated(dat1[c(2,3,4)]),]
-dat3 <- spread(dat1, key=gene, value=counts)
-dat4 <- dat3[complete.cases(dat3),]
-head(dat4)
+result1 <- make_dfs(GENE=SLC[1], BIOMARKER=biomarkers[7])
+head(result1)
 
 ############## By hand since sometime I get singularity errors ###############
-rm(list=c("dat1","Yimp0","impData0","Yfit0","res"))
-which(biomarkers=="MT-ND1")
-which(SLC=="SLC25A6")
-dat1 <- make_dfs(GENE=SLC[6], BIOMARKER=biomarkers[70])
+#rm(list=c("dat1","Yimp0","impData0","Yfit0","res"))
+#which(biomarkers=="MT-ND1")
+#which(SLC=="SLC25A5")
+#dat1 <- make_dfs(GENE=SLC[6], BIOMARKER=biomarkers[70])
 # Rename MT-DN1 column because the glm function can't detect dashes
-colnames(dat1)[6] <- "MTND1"
-head(dat1)
+#colnames(dat4)[6] <- "MTND1"
+#head(dat4)
+
+############################## Mediation ######################################
+rm(list=c("dat1","Yimp0","impData0","Yfit0","res"))
 # Expand data: Step 1: fit glm
-Yimp0 <- glm(organ ~ MTND1 + SLC25A6 + SMRIN + SMTSISCH, family="binomial", data=dat1) 
+Yimp0 <- glm(pathway_state ~ SLC25A1 + PFKM + SMRIN + SMTSISCH, family="binomial", data=result1) 
 attributes(Yimp0)
 head(Yimp0[["effects"]])
 # Expand data: Step 2: impute data 
 impData0 <- neImpute(Yimp0)
 head(impData0)
 # Fit the natureal effect model
-Yfit0 <- neModel(organ ~ MTND10 + MTND11, expData=impData0, se="robust", family="binomial") 
+Yfit0 <- neModel(organ ~ SLC25A10 + SLC25A11, expData=impData0, se="robust", family="binomial") 
 # Model fit summary
 summary(neEffdecomp(Yfit0)) # Get the natural direct and indirect effect
 res <- summary(neEffdecomp(Yfit0)) # Get the total effect
 # Write plot to file
-pdf("MTND1_SLC25A6.pdf")
-plot(neEffdecomp(Yfit0), xlab="Effest size estimate", main="MTND1 (A) and SLC25A6 (M)")
+pdf("SLC25A1_PFKM.pdf")
+plot(neEffdecomp(Yfit0), xlab="Effest size estimate", main="SLC25A1 (A) and PFKM (M)")
 dev.off()
 # Write summary to file
-sink("MTND1_SLC25A6.txt")
+sink("SLC25A1_PFKM.txt")
 print(res)
 sink()
 ############## By hand since sometime I get singularity errors ###############
-
-
 
 # Odds ratio of the natural indirect effect
 # Example: Changing the biomarker ACO1 value that would have been observed at
