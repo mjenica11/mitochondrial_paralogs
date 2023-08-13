@@ -15,11 +15,10 @@ head(colnames(batch1))
 tail(colnames(batch2))
 
 head(batch1$V1)
-head(batch2$gene)
+head(batch2$ensembl_ID)
 
 # Rename ensembl_ID name column
 batch1 <- batch1 %>% rename("ensembl_ID"="V1")
-batch2 <- batch2 %>% rename("ensembl_ID"="gene")
 
 head(batch1$ensembl_ID)
 head(batch2$ensembl_ID)
@@ -28,10 +27,10 @@ head(batch2$ensembl_ID)
 batch2$V1 <- NULL
 dim(batch1) # 61386 1001
 dim(batch2) # 61386 1001
-dim(batch1)==dim(batch2)
+dim(batch1)==dim(batch2) # TRUE TRUE
 
 # Make sure ensembl_ID rows are in the same order for both dataframes
-all(batch1$ensembl_ID==batch2$ensembl_ID) # FALSE
+all(batch1$ensembl_ID==batch2$ensembl_ID) # TRUE
 
 # Order ensembl_IDs to be the same order in both dataframes for merging
 batch1 <- batch1 %>% arrange(ensembl_ID, batch2$ensembl_ID)
@@ -44,6 +43,7 @@ head(combined$ensembl_ID)
 head(colnames(combined))
 tail(colnames(combined))
 dim(combined) # 61386 2001
+combined[1:5,1:5]
 
 # Write to file
 write.csv(combined, "/scratch/mjpete11/linear_models/data/combined_simulated_batch1_batch2.csv")
