@@ -17,7 +17,7 @@ library(fastDummies)
 library(edgeR)
 
 # Read in counts
-counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_batch1_batch2.csv") # integer
+counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_05_batch1_batch2.csv") # integer
 counts[1:5,1:5]
 
 # Drop the index column
@@ -89,19 +89,22 @@ counts[1:5,1:5]
 # Move last column first
 counts <- counts %>% select(ensembl_ID_no_version, everything())
 counts[1:5,1:5]
+dim(counts) # 61386 2002
 
 # Subset just 148 samples from each batch to match the GTEx analysis
 test <- counts[,1:148+2]
 test1 <- counts[,1003:1150]
 head(colnames(test))
-head(colnames(test))
-tail(colnames(test1))
+head(colnames(test1))
+tail(colnames(test))
 tail(colnames(test1))
 test$ensembl_ID_no_version <- vec
 test1$ensembl_ID_no_version <- vec
 counts_subset <- merge(test, test1, by=c("ensembl_ID_no_version"))
 counts_subset[1:5,1:5]
 dim(counts_subset) # 61386 297
+head(colnames(counts_subset))
+tail(colnames(counts_subset))
 
 # Subset the SLC25 genes
 sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
@@ -124,7 +127,7 @@ sub_df[1:5,1:5]
 # Reshape dataframe so it can be converted to a design matrix object
 plotting_df <- sub_df %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID_no_version"))
 head(plotting_df)
-dim(plotting_df) # 15582 4
+dim(plotting_df) # 15741 4
 
 # Rename column labeling the batch
 colnames(plotting_df)[3] <- c("sample")
@@ -175,7 +178,7 @@ head(mat);tail(mat)
 class(mat) # data.frame
 mat <- data.matrix(mat)
 class(mat) # matrix
-dim(mat) # 592 3
+dim(mat) # 296 3
 nrow(mat);ncol(counts_subset) # 296 296
 nrow(mat)==ncol(counts_subset) # TRUE
 
@@ -276,136 +279,8 @@ violin <- function(GENE){
 			  annotate(geom = "text", x = 1.5, y = max(plotting_df$log2_cpm)+1, label=paste0("adj. p log2_cpm: ", corrected_pval)) +
 	   		  ggtitle(paste0("Violin plot of simulated ", GENE, "\n expression after adjustment via voom()")) +
 			  theme(plot.title=element_text(hjust=0.5))
-	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_voom_batch/plots/", GENE, ".png"), device="png")
+	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_voom_batch/plots_error_05/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 plots
 
-
-
-##############################################################################
-# Add a column with the 'organ' status at random but with equal heart and liver
-# sample sizes
-heart_vec <- rep_len('heart', len=nrow(plotting_df)/2)
-liver_vec <- rep_len('liver', len=nrow(plotting_df)/2)
-length(heart_vec) # 7844 
-length(liver_vec) # 7844
-plotting_df$organ <- c(heart_vec, liver_vec)
-head(plotting_df)
-tail(plotting_df)
-
-# Simulate a range of RIN and ischemic time values and add to dataframe
-#Read in voom quantile normalized counts df with GTEx RIN and ischemic time values
-organs <- fread("/scratch/mjpete11/linear_models/data/voom_qnorm_counts1.csv", sep=",") # float
-range(organs$SMRIN) # 5.6, 9.6
-range(organs$SMTSISCH) # 69, 1426
-rin <- round(runif(nrow(plotting_df), 5.6, 9.6), digits=1) 
-ischemic_time <- round(runif(nrow(plotting_df), 69, 1426))
-plotting_df$SMRIN <- rin
-plotting_df$SMTSISCH <- ischemic_time
-head(plotting_df)
-tail(plotting_df)
-
-# Add column with the batch label
-# Add a column with the batch
-batch1 <- rep_len('batch1', len=nrow(plotting_df)/2)
-batch2 <- rep_len('batch2', len=nrow(plotting_df)/2)
-plotting_df$batch <- c(batch1, batch2)
-head(plotting_df)
-tail(plotting_df)
-
-# Add a column with the log2(CPM) transformed values
-plotting_df$log2_cpm <- cpm(plotting_df$value)
-head(plotting_df)
-
-# Set y lim
-range(plotting_df$value) # c(4.10, 15.47) at 5 counts filtering threshold
-
-# before making the violin plots
-colnames(plotting_df) # "hugo_ID", "ensembl_IDs", "variable", "value", "organ", "SMRIN", "SMTSISCH"
-
-##### TEST; Make one dataframe #####
-datt <- plotting_df %>% filter(hugo_ID == "SLC25A1")
-datt2 <- na.omit(datt)
-# Regress out effect of RIN and ischemic time on SLC
-model1 <- lm(value ~ SMRIN + SMTSISCH, data=datt2)
-# Add fitted values to dataframe
-datt2$resids <- residuals(model1)
-# Regress organ on SLC using previous fitted regression values as offset
-model2 <- lm(value ~ batch + resids, data=datt2)
-# Add fitted values from second linear model to dattaframs
-datt2$fitted_values <- fitted.values(model2)
-head(datt2)
-##### TEST #####
-
-# Make a list of dataframes with the 2SRI corrected values
-contained <- list()
-for (paralog in SLC){
-	datt <- plotting_df %>% filter(hugo_ID == paralog)
-	datt2 <- na.omit(datt)
-	datt3 <- distinct(na.omit(datt2))
-	# Regress out effect of RIN and ischemic time on SLC
-	model1 <- lm(value ~ SMRIN + SMTSISCH, data=datt3)
-	# Add fitted values to dataframe
-	datt3$resids <- residuals(model1)
-	# Regress organ on SLC using previous fitted regression values as offset
-	model2 <- lm(value ~ batch + resids, data=datt3)
-	# Add fitted values from second linear model to data frames
-	datt3$fitted_values <- fitted.values(model2)
-	contained[[paralog]] <- datt3
-}
-organs1 <- ldply(contained, data.frame)  
-head(organs1)
-tail(organs1)
-
-# Write the striated samples to file
-# Subset to the range of expected values
-# I don't think there are any but my wifi sucks and I can't see the plots rn
-
-# Remove samples >6 standard deviations away
-median(organs1$fitted_values) # 13.95
-mean(organs1$fitted_values) # 13.88
-sd(organs1$fitted_values) # 1.51
-sd(organs1$fitted_values) * 6 # +/- 9.07 
-above <- 3.96 + 24.0 # 27.96
-below <- 3.96 - 24.0 # -20.04
-range(organs1$fitted_values) # 4.09 14.5
-
-# Violin and jitter plot function
-rm(violin_plots)
-
-violin_plots <- function(GENE){
-	dat <- organs1 %>% filter(hugo_ID == GENE)
-    dat2 <- na.omit(dat)
-    dat3 <- distinct(na.omit(dat2))
-    # Regress out effect of RIN and ischemic time on SLC
-    model1 <- lm(value ~ SMRIN + SMTSISCH, data=dat3)
-	# Add fitted values to dataframe
-	dat3$resids <- residuals(model1)
-	# Regress organ on SLC using previous fitted regression values as offset
-	model2 <- lm(value ~ organ + resids, data=dat3)
-	# Add fitted values from second linear model to dataframs
-	dat3$fitted_values <- fitted.values(model2)
-	p_val <- wilcox.test(formula=fitted_values~organ,data=dat3)$p.value
-	corrected_pval <- p.adjust(p_val, method="bonferroni", n=53)
-    # Violin plot
-	p <- ggplot(dat3, aes(x = organ, y = fitted_values, fill=organ)) +
-	geom_violin(width=1, position=position_dodge(width=0.5)) +
-	scale_fill_manual(values=c("lightgreen", "purple")) +
-	geom_jitter(width=0.3) +
-	stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.1, alpha=0.1) +
-	#annotate(geom = "text", x = 1.5, y = 19, label=paste0("p value: ",corrected_pval)) +
-	annotate(geom = "text", x = 1.5, y = 34, label=paste0("p value: ",corrected_pval)) +
-	#ylim(c(0,30)) +
-	ylab("log2(CPM)") +
-	xlab("organ") +
-#	scale_y_continuous(limits = c(-35, 35), expand = c(0,0), breaks = seq(-35, 35, by = 1)) +
-#	scale_y_continuous(breaks=scales::pretty_breaks(n=20)) + # Add more y-axis tick marks
-	ggtitle(paste0("Violin plot of simulated ", GENE, "\n expression between heart and liver after 2SRI")) +
-	theme(plot.title = element_text(hjust = 0.5, size=14)) 
-	ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_2SRI/plots/", GENE, ".png"), p, device="png")
-}
-plots <- Map(violin_plots, GENE=SLC)
-violin_plots(GENE="SLC25A1", DATA=organs)
-plots[[1]]
-plots
