@@ -17,7 +17,7 @@ library(fastDummies)
 library(edgeR)
 
 # Read in counts
-counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_batch1_batch2.csv") # integer
+counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_001_batch1_batch2.csv") # integer
 counts[1:5,1:5]
 
 # Drop the index column
@@ -181,26 +181,26 @@ nrow(mat)==ncol(counts_subset) # TRUE
 
 ################################### TEST ###################################
 # Create test counts and design matrix
-test_counts <- counts[1:10,1:10]
+#test_counts <- counts[1:10,1:10]
 # Add some non-zero values
-test_counts[1:5,1] <- sample.int(1000, 5, 3)
-test_counts[1:5,9] <- sample.int(1000, 5, 3)
-test_counts[6:10,3] <- sample.int(1000, 5, 3)
-test_counts[6:10,6] <- sample.int(1000, 5, 3)
-test_counts
+#test_counts[1:5,1] <- sample.int(1000, 5, 3)
+#test_counts[1:5,9] <- sample.int(1000, 5, 3)
+#test_counts[6:10,3] <- sample.int(1000, 5, 3)
+#test_counts[6:10,6] <- sample.int(1000, 5, 3)
+#test_counts
 
 # Change the last 5 rows to indicate liver instead of heart samples
 # otherwise voom will not run since two conditions are not present
-test_mat <- mat[1:10,]
-test_mat[6:10,3] <- 1 
-test_mat[6:10,2] <- 0
-test_mat
+#test_mat <- mat[1:10,]
+#test_mat[6:10,3] <- 1 
+#test_mat[6:10,2] <- 0
+#test_mat
 
 # Apply limma::voom() to counts matrix to normalize and write to file
-voom_obj <- voom(counts=test_counts, design=test_mat, normalize.method="quantile")  
+#voom_obj <- voom(counts=test_counts, design=test_mat, normalize.method="quantile")  
 #write.csv("/scratch/mjpete11/mitochondrial_paralogs/data/data/test_simulated_data_voom_Eobject.tsv", sep="\t") # float
-print("completed voom")
-head(voom_obj$E)
+#print("completed voom")
+#head(voom_obj$E)
 ################################### TEST ###################################
 
 # Apply limma::voom() to counts matrix to normalize and write to file
@@ -217,7 +217,7 @@ voom_E <- voom_E %>%
 voom_E[1:5,1:5]
 dim(voom_E) # 61386 297
 class(voom_E)
-write.csv(voom_E, "/scratch/mjpete11/linear_models/data/simulated_data_voom_Eobject.csv") # float
+#write.csv(voom_E, "/scratch/mjpete11/linear_models/data/simulated_data_voom_Eobject.csv") # float
 print("completed voom")
 
 # Subset the gene_counts df using the ensembl_IDs; then use the corresponding
@@ -278,17 +278,17 @@ range(plotting_df$value) # c(4.10, 15.47) at 5 counts filtering threshold
 colnames(plotting_df) # "hugo_ID", "ensembl_IDs", "variable", "value", "organ", "SMRIN", "SMTSISCH"
 
 ##### TEST; Make one dataframe #####
-datt <- plotting_df %>% filter(hugo_ID == "SLC25A1")
-datt2 <- na.omit(datt)
+#datt <- plotting_df %>% filter(hugo_ID == "SLC25A1")
+#datt2 <- na.omit(datt)
 # Regress out effect of RIN and ischemic time on SLC
-model1 <- lm(value ~ SMRIN + SMTSISCH, data=datt2)
+#model1 <- lm(value ~ SMRIN + SMTSISCH, data=datt2)
 # Add fitted values to dataframe
-datt2$resids <- residuals(model1)
+#datt2$resids <- residuals(model1)
 # Regress organ on SLC using previous fitted regression values as offset
-model2 <- lm(value ~ batch + resids, data=datt2)
+#model2 <- lm(value ~ batch + resids, data=datt2)
 # Add fitted values from second linear model to dattaframs
-datt2$fitted_values <- fitted.values(model2)
-head(datt2)
+#datt2$fitted_values <- fitted.values(model2)
+#head(datt2)
 ##### TEST #####
 
 # Make a list of dataframes with the 2SRI corrected values
@@ -311,10 +311,6 @@ organs1 <- ldply(contained, data.frame)
 head(organs1)
 tail(organs1)
 
-# Write the striated samples to file
-# Subset to the range of expected values
-# I don't think there are any but my wifi sucks and I can't see the plots rn
-
 # Remove samples >6 standard deviations away
 median(organs1$fitted_values) # 13.95
 mean(organs1$fitted_values) # 13.88
@@ -336,13 +332,13 @@ violin_plots <- function(GENE){
 	# Add fitted values to dataframe
 	dat3$resids <- residuals(model1)
 	# Regress organ on SLC using previous fitted regression values as offset
-	model2 <- lm(value ~ organ + resids, data=dat3)
+	model2 <- lm(value ~ batch + resids, data=dat3)
 	# Add fitted values from second linear model to dataframs
 	dat3$fitted_values <- fitted.values(model2)
-	p_val <- wilcox.test(formula=fitted_values~organ,data=dat3)$p.value
+	p_val <- wilcox.test(formula=fitted_values~batch,data=dat3)$p.value
 	corrected_pval <- p.adjust(p_val, method="bonferroni", n=53)
     # Violin plot
-	p <- ggplot(dat3, aes(x = organ, y = fitted_values, fill=organ)) +
+	p <- ggplot(dat3, aes(x = batch, y = fitted_values, fill=batch)) +
 	geom_violin(width=1, position=position_dodge(width=0.5)) +
 	scale_fill_manual(values=c("lightgreen", "purple")) +
 	geom_jitter(width=0.3) +
@@ -356,7 +352,7 @@ violin_plots <- function(GENE){
 #	scale_y_continuous(breaks=scales::pretty_breaks(n=20)) + # Add more y-axis tick marks
 	ggtitle(paste0("Violin plot of simulated ", GENE, "\n expression between heart and liver after 2SRI")) +
 	theme(plot.title = element_text(hjust = 0.5, size=14)) 
-	ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_2SRI/plots/", GENE, ".png"), p, device="png")
+	ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_2SRI/plots_error_001/", GENE, ".png"), p, device="png")
 }
 plots <- Map(violin_plots, GENE=SLC)
 violin_plots(GENE="SLC25A1", DATA=organs)
