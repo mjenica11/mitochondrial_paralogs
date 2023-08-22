@@ -17,7 +17,7 @@ library(fastDummies)
 library(edgeR)
 
 # Read in counts
-counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_001_batch1_batch2.csv") # integer
+counts <- fread("/scratch/mjpete11/linear_models/data/simulated_error_05_combat_seq.csv") # integer
 counts[1:5,1:5]
 
 # Drop the index column
@@ -108,7 +108,11 @@ sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
 
 # Is every gene present? 
 setdiff(SLC25, sub_df$'ensembl_ID_no_version') # Victory!
+# Batch #2 error_rate = 0.001, ENSG00000164933 (SLC25A32) was filtered out
+# Batch #2 error_rate = 0.05, no genes filtered out
 
+### temp: after applying combat-seq
+sub_df <- counts_subset
 # Number of genes remaining
 nrow(sub_df) # 53 
 
@@ -219,6 +223,19 @@ dim(voom_E) # 61386 297
 class(voom_E)
 #write.csv(voom_E, "/scratch/mjpete11/linear_models/data/simulated_data_voom_Eobject.csv") # float
 print("completed voom")
+
+# New list to subset samples with, since SLC25A32 is missing with batch #2 error_rate=0.001
+rm(SLC)
+SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
+		 "UCP1", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
+		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
+		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
+		 "SLC25A23", "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
+		 "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A31",  
+		 "SLC25A33", "SLC25A34", "SLC25A35", "SLC25A36", "SLC25A37", 
+		 "SLC25A38", "SLC25A39", "SLC25A40", "SLC25A41", "SLC25A42", 
+		 "SLC25A43", "SLC25A44", "SLC25A45", "SLC25A46", "SLC25A47",
+		 "SLC25A48", "MTCH1", "MTCH2", "SLC25A51", "SLC25A52", "SLC25A53")
 
 # Subset the gene_counts df using the ensembl_IDs; then use the corresponding
 # index to subset the voom-transformed matrix (plotting_df)
@@ -352,7 +369,7 @@ violin_plots <- function(GENE){
 #	scale_y_continuous(breaks=scales::pretty_breaks(n=20)) + # Add more y-axis tick marks
 	ggtitle(paste0("Violin plot of simulated ", GENE, "\n expression between heart and liver after 2SRI")) +
 	theme(plot.title = element_text(hjust = 0.5, size=14)) 
-	ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_2SRI/plots_error_001/", GENE, ".png"), p, device="png")
+	ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_2SRI/plots_error_05/", GENE, ".png"), p, device="png")
 }
 plots <- Map(violin_plots, GENE=SLC)
 violin_plots(GENE="SLC25A1", DATA=organs)
