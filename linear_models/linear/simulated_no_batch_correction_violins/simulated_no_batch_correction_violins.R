@@ -10,10 +10,13 @@ library(stringr)
 library(ggplot2)
 library(ggpubr)
 library(edgeR)
+library(ggpubr)
+library(rstatix)
+library(ggsignif)
 
 # Read in quantile normalized counts
 #counts <- fread("/scratch/mjpete11/linear_models/data/simulated_data_salmon_count_matrix_20_samples.tsv", sep="/") # float
-counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_batch1_batch2.csv") # integer
+counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_001_batch1_batch2.csv") # integer
 counts[1:5,1:5]
 
 # Drop the index column
@@ -77,7 +80,8 @@ counts <- as.data.frame(counts)
 counts$ensembl_ID <- as.character(counts$ensembl_ID) # Convert from factor to character 
 class(counts$ensembl_ID) # character
 vec <- gsub("\\.\\d+", "", counts$ensembl_ID) # write this to file because it takes forever to run
-write.csv(vec, "/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
+head(vec)
+#write.csv(vec, "/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
 #vec <- read.csv("/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
 counts$ensembl_ID_no_version <- vec
 counts[1:5,1:5]
@@ -87,7 +91,7 @@ counts <- counts %>% select(ensembl_ID_no_version, everything())
 counts[1:5,1:5]
 
 # Subset just 148 samples from each batch to match the GTEx analysis
-test <- counts[,3:148+2]
+test <- counts[,1:148+2]
 test1 <- counts[,1003:1150]
 tail(colnames(test))
 tail(colnames(test1))
@@ -121,6 +125,7 @@ dim(plotting_df) # 106000 4
 
 # Rename column labeling the batch
 colnames(plotting_df)[3] <- c("sample")
+head(plotting_df)
 
 # Add a column with the batch
 batch1 <- rep_len('batch1', len=nrow(plotting_df)/2)
@@ -134,26 +139,72 @@ plotting_df$log2_cpm <- cpm(plotting_df$value)
 head(plotting_df)
 
 # Remove samples >6 standard deviations away
-median(plotting_df$log2_cpm) # 7.93 
-mean(plotting_df$log2_cpm) # 9.43
-sd(plotting_df$log2_cpm) # 4.88
-sd(plotting_df$log2_cpm) * 6 # +/- 29.3 
+median(plotting_df$log2_cpm) # 54.00
+mean(plotting_df$log2_cpm) # 64.18
+sd(plotting_df$log2_cpm) # 33.29
+sd(plotting_df$log2_cpm) * 6 # +/- 199.73 
 above <- 3.43 + 20.6 # 24.03
 below <- 3.43 - 20.6 # -17.17
 above;below
 
 # Are there any samples outside of this range?
-range(plotting_df$log2_cpm) # -6.88 to 12.4 
+range(plotting_df$log2_cpm) # 0.00 to 179.60
 
 # Number of samples outside of this range
-outlier_above <- plotting_df[plotting_df$log2_cpm > 24.03,] # 0 sample  
+outlier_above <- plotting_df[plotting_df$log2_cpm > 24.03,] # 15207 sample  
 outlier_below <- plotting_df[plotting_df$log2_cpm < -17.77,] # 0 samples 
+nrow(outlier_above);nrow(outlier_below)
+
+###### TEST PLOT #######
+# Move the p-value to the side so I don't have to set the y-limit
+
+dat <- plotting_df %>% filter(hugo_ID=="SLC25A1")
+
+rm(p)
+p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
+		geom_violin(trim = FALSE) +
+		geom_jitter(size = 1, alpha = 0.9) +
+		stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
+		# bug with ggplot; ..var.. has been deprecated so force label variable to be a string
+		stat_compare_means(method = "wilcox.test", 
+						   aes(label=paste("adj.p_val =", after_stat(!!str2lang("p.adj"))*53)), 
+						   label.x=1.5,
+						   label.y = max(dat[["log2_cpm"]]) + 5,
+						   paired = TRUE) +
+		scale_fill_manual(values = c("lightgreen", "purple")) +
+		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") + 
+		ggtitle(paste0("Violin plot of simulated SLC25A1", " expression without batch correction")) 
+		ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_no_batch_correction_violins/error_001_plots/", "SLC25A1", ".png"), device="png")
+p
+
+###### END TEST PLOT #######
 
 # Details for plots
-range(plotting_df$log2_cpm)
 rm(violin)
 rm(plots)
 
+# Violin plot
+violin <- function(GENE) {
+		dat <- plotting_df %>% filter(hugo_ID==GENE)
+		p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
+		geom_violin(trim = FALSE) +
+		geom_jitter(size = 1, alpha = 0.9) +
+		stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
+		# bug with ggplot; ..var.. has been deprecated so force label variable to be a string
+		stat_compare_means(method = "wilcox.test", 
+						   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
+						   label.x = 1.25, 
+						   label.y = max(dat[["log2_cpm"]]) + 5,
+						   paired = TRUE) +
+		scale_fill_manual(values = c("lightgreen", "purple")) +
+		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") + 
+		ggtitle(paste0("Violin plot of simulated ", GENE, " expression without batch correction")) 
+		ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_no_batch_correction_violins/error_001_plots/", GENE, ".png"), device="png")
+}
+plots <- Map(violin, GENE=SLC)
+
+################ OLD VIOLIN PLOT #############
+# changed to a different p-val function; I don't think the originl was correct
 # Function to plot violin plots
 violin <- function(GENE){
 		 dat <- plotting_df %>% filter(hugo_ID==GENE)
@@ -167,10 +218,10 @@ violin <- function(GENE){
 	   		  geom_jitter(size = 1, alpha = 0.9) +
 #       		  scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
 #			   			       breaks = seq(-35, 35, by = 1)) +
-	   		  labs(x = "organ", y = "log2(CPM(prior.count=0.5))", fill = "") +
+	   		  labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") +
 			  annotate(geom = "text", x = 1.5, y = 200, label=paste0("adj. p value: ", corrected_pval)) +
 	   		  ggtitle(paste0("Violin plot of simulated ", GENE, " expression without batch correction")) 
-	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_no_batch_correction_violins/plots/", GENE, ".png"), device="png")
+	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_no_batch_correction_violins/error_05_plots/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
