@@ -173,6 +173,7 @@ p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
 						   paired = TRUE) +
 		scale_fill_manual(values = c("lightgreen", "purple")) +
 		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") + 
+		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 1: error_rate = 0.001")) +
 		ggtitle(paste0("Violin plot of simulated SLC25A1", " expression without batch correction")) 
 		ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_no_batch_correction_violins/error_001_plots/", "SLC25A1", ".png"), device="png")
 p
@@ -197,7 +198,8 @@ violin <- function(GENE) {
 						   label.y = max(dat[["log2_cpm"]]) + 5,
 						   paired = TRUE) +
 		scale_fill_manual(values = c("lightgreen", "purple")) +
-		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") + 
+		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") +
+		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.001")) +
 		ggtitle(paste0("Violin plot of simulated ", GENE, " expression without batch correction")) 
 		ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_no_batch_correction_violins/error_001_plots/", GENE, ".png"), device="png")
 }
