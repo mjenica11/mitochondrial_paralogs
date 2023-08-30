@@ -158,6 +158,7 @@ range(organs$log2_cpm) # -6.72 to 12.1
 # Number of samples outside of this range
 outlier_above <- organs[organs$log2_cpm > 24.03,] # 0 sample  
 outlier_below <- organs[organs$log2_cpm < -17.77,] # 0 samples 
+nrow(outlier_above);nrow(outlier_below)
 
 # Details for plots
 range(organs$log2_cpm)
@@ -167,19 +168,18 @@ rm(plots)
 # Function to plot violin plots
 violin <- function(GENE){
 		 dat <- organs %>% filter(gene==GENE)
-         p_val <- wilcox.test(formula=log2_cpm~organ, data=dat, paired=TRUE, exact=TRUE)$p.value
-	     n_tests <- 53
-	     corrected_pval <- p.adjust(p_val, method="bonferroni", n=n_tests)
 	     p <- ggplot(dat, aes(x = organ, y = log2_cpm, fill = organ)) +
-	   	  	  geom_violin(trim = FALSE) +
-       		  stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
-	   		  scale_fill_manual(values = c("lightgreen", "purple")) +
-	   		  geom_jitter(size = 1, alpha = 0.9) +
-#       		  scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
-#			   			       breaks = seq(-35, 35, by = 1)) +
-	   		  labs(x = "organ", y = "log2(CPM(prior.count=0.5))", fill = "") +
-			  annotate(geom = "text", x = 1.5, y = 34, label=paste0("adj. p value: ", corrected_pval)) +
-	   		  ggtitle(paste0("Violin plot of ", GENE, " expression with combat-seq correction")) 
+					 stat_compare_means(method = "wilcox.test", 
+										aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
+										label.x = 1.25, 
+										label.y = max(dat[["log2_cpm"]]) + 1.5,
+										paired = TRUE) +
+					geom_violin(trim = FALSE) +
+					stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
+					scale_fill_manual(values = c("lightgreen", "purple")) +
+					geom_jitter(size = 1, alpha = 0.9) +
+	   		  		labs(x = "organ", y = "log2(CPM(prior.count=0.5))", fill = "") +
+	   		  		ggtitle(paste0("Violin plot of ", GENE, " expression with combat-seq correction")) 
 	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/combat_seq_violins/plots/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
