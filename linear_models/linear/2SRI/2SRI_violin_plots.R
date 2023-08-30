@@ -210,18 +210,20 @@ gaussian_2SRI_violin_plots <- function(GENE){
 #	corrected_pval <- p.adjust(p_val, method="bonferroni", n=53)
     # Violin plot
 	p <- ggplot(dat3, aes(x = organ, y = fitted_values, fill=organ)) +
-	geom_violin(width=1, position=position_dodge(width=0.5)) +
-	scale_fill_manual(values=c("lightgreen", "purple")) +
-	geom_jitter(width=0.3) +
-	stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.1, alpha=0.1) +
-#	annotate(geom = "text", x = 1.5, y = 34, label=paste0("p value: ",corrected_pval)) +
-	#ylim(c(0,30)) +
-	ylab("log2_cpm") +
-	xlab("organ") +
-#	scale_y_continuous(limits = c(0, 73898), expand = c(0,0), breaks = seq(0, 73898, by = 50)) +
-	theme(plot.title = element_textbox_simple(size=10)) + # automatically wrap long titles
-	ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver after 2SRI")) 
-	ggsave(paste0("/scratch/mjpete11/linear_models/linear/2SRI/gaussian_2SRI_violin_plots/", GENE, ".png"), p, device="png")
+				stat_compare_means(method = "wilcox.test", 
+								   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
+								   label.x = 1.25, 
+								   label.y = max(dat3[["fitted_values"]]) + 1.5,
+								   paired = TRUE) +
+				geom_violin(width=1, position=position_dodge(width=0.5)) +
+				scale_fill_manual(values=c("lightgreen", "purple")) +
+				geom_jitter(width=0.3) +
+				stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.1, alpha=0.1) +
+				ylab("log2_cpm") +
+				xlab("organ") +
+				theme(plot.title = element_textbox_simple(size=10)) + # automatically wrap long titles
+				ggtitle(paste0("Violin plot of ", GENE, " expression between heart and liver after 2SRI")) 
+				ggsave(paste0("/scratch/mjpete11/linear_models/linear/2SRI/gaussian_2SRI_violin_plots/", GENE, ".png"), p, device="png")
 }
 plots <- Map(gaussian_2SRI_violin_plots, GENE=SLC)
 
