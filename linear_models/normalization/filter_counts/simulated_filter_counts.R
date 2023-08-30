@@ -10,6 +10,7 @@ library(dplyr)
 # Read in GTEx counts
 counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_batch1_batch2.csv", sep=",")
 dim(counts) # 61386 2002
+counts[1:5,1:5]
 counts[1:5,2:5]
 
 # Drop the index column
