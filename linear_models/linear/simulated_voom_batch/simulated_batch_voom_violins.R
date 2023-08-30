@@ -17,7 +17,7 @@ library(fastDummies)
 library(edgeR)
 
 # Read in counts
-counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_05_batch1_batch2.csv") # integer
+counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_5_batch1_batch2.csv") # integer
 counts[1:5,1:5]
 
 # Drop the index column
@@ -240,47 +240,47 @@ head(plotting_df);tail(plotting_df)
 plotting_df$log2_cpm <- cpm(plotting_df$value)
 head(plotting_df);tail(plotting_df)
 
-# Test violin plot 
-rm(list=c("dat0", "dat", "p_val", "n_tests", "corrected_pval", "p"))
-
-dat0 <- plotting_df %>% filter(hugo_ID=="SLC25A6")
-dat <- unique(dat0) 
-p_val <- wilcox.test(formula=log2_cpm~batch, data=dat, paired=TRUE, exact=TRUE)$p.log2_cpm
-n_tests <- 53
-corrected_pval <- p.adjust(p_val, method="bonferroni", n=n_tests)
+############################# TEST PLOT ######################################
+dat <- plotting_df %>% filter(hugo_ID=="SLC25A1")
 p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
-geom_violin(trim = FALSE) +
-stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
-scale_fill_manual(values = c("lightgreen", "purple")) +
-geom_jitter(size = 1, alpha = 0.9) +
-#scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
-#			       breaks = seq(-35, 35, by = 1)) +
-labs(x = "organ", y = "log2(CPM)", fill = "") +
-annotate(geom = "text", x = 1.5, y = max(range(plotting_df$log2_cpm))+5, label=paste0("adj. p value: ", corrected_pval)) +
-ggtitle(paste0("Violin plot of simulated SLC25A6 expression between /n heart and liver after blocking by batch via limma::voom()")) 
-ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_voom_batch/plots/SLC25A6.png"), device="png")
+		stat_compare_means(method = "wilcox.test", 
+						   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
+						   label.x = 1.25, 
+						   label.y = max(dat[["log2_cpm"]]) + 0.5,
+						   paired = TRUE) +
+		geom_violin(trim = FALSE) +
+		stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
+		scale_fill_manual(values = c("lightgreen", "purple")) +
+		geom_jitter(size = 1, alpha = 0.9) +
+		labs(x = "batch", y = "log2(CPM)", fill = "") +
+		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.001")) +
+		ggtitle(paste0("Violin plot of simulated ", "SLC25A1", "\n expression after adjustment via voom()")) +
+		theme(plot.title=element_text(hjust=0.5))
+ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_voom_batch/plots_error_001/", "SLC25A1", ".png"), device="png")
 
+rm(list=ls("p", "dat"))
+############################# TEST PLOT ######################################
 # Function to plot violin plots
-#rm(plots)
+rm(plots)
 rm(violin)
+
 violin <- function(GENE){
-		 dat <- plotting_df %>% filter(hugo_ID==GENE)
-         p_val <- wilcox.test(formula=log2_cpm~batch, data=dat, paired=TRUE, exact=TRUE)$p.log2_cpm
-	     n_tests <- 53
-	     corrected_pval <- p.adjust(p_val, method="bonferroni", n=n_tests)
-	     p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
-	   	  	  geom_violin(trim = FALSE) +
-       		  stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
-	   		  scale_fill_manual(values = c("lightgreen", "purple")) +
-	   		  geom_jitter(size = 1, alpha = 0.9) +
-#       		  scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
-#			   			       breaks = seq(-35, 35, by = 1)) +
-	   		  labs(x = "batch", y = "log2(CPM)", fill = "") +
-			  annotate(geom = "text", x = 1.5, y = max(plotting_df$log2_cpm)+1, label=paste0("adj. p log2_cpm: ", corrected_pval)) +
-	   		  ggtitle(paste0("Violin plot of simulated ", GENE, "\n expression after adjustment via voom()")) +
-			  theme(plot.title=element_text(hjust=0.5))
-	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_voom_batch/plots_error_05/", GENE, ".png"), device="png")
+		dat <- plotting_df %>% filter(hugo_ID==GENE)
+		p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
+				stat_compare_means(method = "wilcox.test", 
+								   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
+								   label.x = 1.25, 
+								   label.y = max(dat[["log2_cpm"]]) + 0.5,
+								   paired = TRUE) +
+				geom_violin(trim = FALSE) +
+				stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
+				scale_fill_manual(values = c("lightgreen", "purple")) +
+				geom_jitter(size = 1, alpha = 0.9) +
+				labs(x = "batch", y = "log2(CPM)", fill = "") +
+				scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.5")) +
+				ggtitle(paste0("Violin plot of simulated ", GENE, "\n expression after adjustment via voom()")) +
+				theme(plot.title=element_text(hjust=0.5))
+		ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_voom_batch/plots_error_5/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
-plots
 
