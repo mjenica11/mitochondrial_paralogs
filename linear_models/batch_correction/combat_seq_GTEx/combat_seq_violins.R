@@ -125,7 +125,7 @@ rm(tmp2)
 # Bind liver and heart dfs vertically 
 plotting_df <- rbind(tmp1_2, tmp2_2)
 
-#plotting_df <- merge(tmp1, tmp2, by=c("SUBJID"))
+# Sanity check
 nrow(plotting_df)==nrow(tmp1_2)+nrow(tmp2_2) # TRUE
 any(duplicated(plotting_df)) # FALSE
 
