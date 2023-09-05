@@ -29,12 +29,14 @@ SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
 		 "SLC25A43", "SLC25A44", "SLC25A45", "SLC25A46", "SLC25A47",
 		 "SLC25A48", "MTCH1", "MTCH2", "SLC25A51", "SLC25A52", "SLC25A53")
 
+counts <- as.data.frame(counts)
+
 # Subset the SLC25 genes
 counts <- as.data.frame(counts)
 sub_df <- counts[counts$"Description" %in% SLC, ]
 
-# Only 49 genes are present; which are missing?
-setdiff(SLC, sub_df$'Description') 
+# Make sure all the genes are there 
+setdiff(SLC, sub_df$'Description') # All present
 
 # Number of genes remaining
 nrow(counts) # 51,259 
@@ -161,7 +163,6 @@ outlier_below <- plotting_df[plotting_df$log2_cpm < -17.77,] # 0 samples
 nrow(outlier_above);nrow(outlier_below)
 
 # Details for plots
-range(plotting_df$log2_cpm)
 rm(violin)
 rm(plots)
 
