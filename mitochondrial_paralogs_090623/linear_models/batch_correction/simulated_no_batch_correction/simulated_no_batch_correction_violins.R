@@ -135,26 +135,50 @@ head(plotting_df)
 tail(plotting_df)
 
 # Add a column with the log2(CPM) transformed values
-plotting_df$log2_cpm <- cpm(plotting_df$value)
+plotting_df$log2_cpm <- cpm(plotting_df$value, log=TRUE, prior.count=0.5)
 head(plotting_df)
 
-# Remove samples >6 standard deviations away
-median(plotting_df$log2_cpm) # 54.00
-mean(plotting_df$log2_cpm) # 64.18
-sd(plotting_df$log2_cpm) # 33.29
-sd(plotting_df$log2_cpm) * 6 # +/- 198.38
+# Are there any samples >6 standard deviations away
+median(plotting_df$log2_cpm) 
+mean(plotting_df$log2_cpm) 
+sd(plotting_df$log2_cpm) 
+sd(plotting_df$log2_cpm) * 6 
 above <- mean(plotting_df$log2_cpm) + sd(plotting_df$log2_cpm) * 6
 below <- mean(plotting_df$log2_cpm) - sd(plotting_df$log2_cpm) * 6
 above;below
 
 # Are there any samples outside of this range?
-range(plotting_df$log2_cpm) # 0.00 to 179.60
+range(plotting_df$log2_cpm) 
 
 # Number of samples outside of this range
 outlier_above <- plotting_df[plotting_df$log2_cpm > above,] # 0 sample  
 outlier_below <- plotting_df[plotting_df$log2_cpm < below,] # 0 samples 
 nrow(outlier_above);nrow(outlier_below)
 
+# Violin plot
+violin <- function(GENE) {
+		dat <- plotting_df %>% filter(hugo_ID==GENE)
+		p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
+		geom_violin(trim = FALSE) +
+		geom_jitter(size = 1, alpha = 0.9) +
+		stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
+		# bug with ggplot; ..var.. has been deprecated so force label variable to be a string
+		stat_compare_means(method = "wilcox.test", 
+						   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
+						   label.x = 1.25, 
+						   label.y = max(dat[["log2_cpm"]]) + 1,
+						   paired = TRUE) +
+		scale_fill_manual(values = c("lightgreen", "purple")) +
+		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") +
+		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.5")) +
+		ggtitle(paste0("Violin plot of simulated ", GENE, " expression without batch correction")) 
+		ggsave(paste0("/scratch/mjpete11/linear_models/batch_correction/simulated_no_batch_correction/error_5_plots/", GENE, ".png"), device="png")
+}
+plots <- Map(violin, GENE=SLC)
+
+# Details for plots
+rm(violin)
+rm(plots)
 ###### TEST PLOT #######
 dat <- plotting_df %>% filter(hugo_ID=="SLC25A1")
 
@@ -171,34 +195,11 @@ p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
 						   paired = TRUE) +
 		scale_fill_manual(values = c("lightgreen", "purple")) +
 		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") + 
-		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 1: error_rate = 0.001")) +
+		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 1: error_rate = 0.05")) +
 		ggtitle(paste0("Violin plot of simulated SLC25A1", " expression without batch correction")) 
-		ggsave(paste0("/scratch/mjpete11/linear_models/batch_correction/simulated_no_batch_correction_violins/error_001_plots/", "SLC25A1", ".png"), device="png")
+		ggsave(paste0("/scratch/mjpete11/linear_models/batch_correction/simulated_no_batch_correction_violins/error_05_plots/", "SLC25A1", ".png"), device="png")
 p
 
 ###### END TEST PLOT #######
 
-# Details for plots
-rm(violin)
-rm(plots)
 
-# Violin plot
-violin <- function(GENE) {
-		dat <- plotting_df %>% filter(hugo_ID==GENE)
-		p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
-		geom_violin(trim = FALSE) +
-		geom_jitter(size = 1, alpha = 0.9) +
-		stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
-		# bug with ggplot; ..var.. has been deprecated so force label variable to be a string
-		stat_compare_means(method = "wilcox.test", 
-						   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
-						   label.x = 1.25, 
-						   label.y = max(dat[["log2_cpm"]]) + 5,
-						   paired = TRUE) +
-		scale_fill_manual(values = c("lightgreen", "purple")) +
-		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") +
-		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.5")) +
-		ggtitle(paste0("Violin plot of simulated ", GENE, " expression without batch correction")) 
-		ggsave(paste0("/scratch/mjpete11/linear_models/batch_correction/simulated_no_batch_correction_violins/error_5_plots/", GENE, ".png"), device="png")
-}
-plots <- Map(violin, GENE=SLC)
