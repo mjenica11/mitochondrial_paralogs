@@ -1,0 +1,113 @@
+# PCA plots of unadjusted, quantile normalize, and combat normalized GTEx count data
+
+library(data.table)
+library(stats)
+library(ggplot2)
+library(ggfortify)
+library(tidyverse)
+
+# Read in quantile normalized GTEx data
+counts <- fread("/scratch/mjpete11/linear_models/data/quantile_normalized_counts.csv", sep=",")
+
+# Read in metadata with batch variables
+manifest <- read.csv("/scratch/mjpete11/linear_models/data/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt", header=TRUE, sep = "\t")
+
+# Remove all rows with NA in either columns
+manifest <- manifest %>% drop_na(SAMPID, SMTSD, SMTSISCH, SMGEBTCH, SMRIN) 
+
+# Median filter: Function to filter rows that do not have a median >= condition
+median_filter <- function(DF, thresh){
+		DF <- DF[which(apply(DF[,-c(1:2)],1,median) > thresh), ]
+		return(DF)
+}
+
+# Filter rows with a median of < 10 counts
+counts <- median_filter(DF=counts, thresh=10)
+
+# Drop samples from manifest that are missing in the count data
+#rownames(manifest) <- manifest$SAMPID
+manifest <- manifest[(manifest$SAMPID %in% colnames(counts)[3:ncol(counts)]),]
+samples <- manifest$SAMPID
+
+# Only keep samples that are present in the manifest 
+counts <- counts[,..samples]
+
+# TEMP
+#counts <- counts[,3:500]
+
+# Subset heart left ventricle and liver samples into two separate dfs
+heart <- manifest[manifest$SMTSD %in% "Heart - Left Ventricle", ]
+liver <- manifest[manifest$SMTSD %in% "Liver", ]
+
+# Subset the SLC25 gene count df by the sample IDs that match the IDs in file3 df
+heart2 <- counts %>% select(contains(heart$SAMPID))
+liver2 <- counts %>% select(contains(liver$SAMPID))
+
+# Append the gene ensemble ID and common name
+heart3 <- cbind('gene'=counts$'Description', heart2)
+liver3 <- cbind('gene'=counts$'Description', liver2)
+
+heart3 <- cbind('gene'=counts[,1], heart2)
+liver3 <- cbind('gene'=counts[,1], liver2)
+colnames(heart3)[1] <- 'gene' 
+colnames(liver3)[1] <- 'gene' 
+
+# Add a columns with the organ in each df
+heart3$organ <- 'heart' 
+liver3$organ <- 'liver' 
+
+# Reshape dataframe so it can be converted to a design matrix object
+heart4 <- melt(data = heart3,
+			   id.vars = c("gene", "organ"),
+			   measure.vars = colnames(heart3)[3:ncol(heart3)-1],
+			   variable.name = "samples",
+			   value.name = "counts")
+
+liver4 <- melt(data = liver3,
+			   id.vars = c("gene", "organ"),
+			   measure.vars = colnames(liver3)[3:ncol(liver3)-1],
+			   variable.name = "samples",
+			   value.name = "counts")
+
+# Change the name of the 'variable' column to 'SAMPID' to match columns
+colnames(heart4)[3] <- "SAMPID" 
+colnames(liver4)[3] <- "SAMPID" 
+
+# Add column with the expression batch ID (SMGEBTCH) and the type of genotype
+# or expression batch (SMGEBTCHT)
+heart4$SMGEBTCH <- manifest$SMGEBTCH[match(heart4$SAMPID, manifest$SAMPID)]
+liver4$SMGEBTCH <- manifest$SMGEBTCH[match(liver4$SAMPID, manifest$SAMPID)]
+
+heart4$SMGEBTCHT <- manifest$SMGEBTCHT[match(heart4$SAMPID, manifest$SAMPID)]
+liver4$SMGEBTCHT <- manifest$SMGEBTCHT[match(liver4$SAMPID, manifest$SAMPID)]
+
+heart4$SMRIN <- manifest$SMRIN[match(heart4$SAMPID, manifest$SAMPID)]
+liver4$SMRIN <- manifest$SMRIN[match(liver4$SAMPID, manifest$SAMPID)]
+
+heart4$SMTSISCH <- manifest$SMTSISCH[match(heart4$SAMPID, manifest$SAMPID)]
+liver4$SMTSISCH <- manifest$SMTSISCH[match(liver4$SAMPID, manifest$SAMPID)]
+
+# Combine into one df
+organs <- rbind(heart4, liver4)
+
+# Factor response variable
+organs$organ <- as.factor(organs$organ)
+
+# PCA on unnormalized data
+pca_obj <- prcomp(t(counts))
+
+# PCA 
+df <- data.frame(pca_obj$x[,1:2])
+df$SAMPID <- row.names(pca_obj$x)
+df_2 <- merge(organs %>% select(organ,SAMPID,SMGEBTCH, SMTSISCH, SMRIN) %>% unique(), df)
+
+p1 <- ggplot(df_2, aes(PC1,PC2,color=SMGEBTCH)) + geom_point(show.legend=FALSE)
+#p1 <- ggplot(df_2, aes(PC1,PC2,color=organ)) + geom_point(show.legend=TRUE)
+
+# Calculate percent variance
+print(head(((pca_obj$sdev^2) / (sum(pca_obj$sdev^2)))*100))
+
+# Print plot
+pdf(file="/scratch/mjpete11/linear_models/results2/batch_quantile_PCA.pdf")
+p1
+dev.off()
