@@ -18,8 +18,9 @@ library(edgeR)
 library(sva)
 
 # Read in counts
-counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_5_batch1_batch2.csv") # integer
+counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_001_batch1_batch2.csv") # integer
 counts[1:5,1:5]
+dim(counts) # 61386 2001
 
 # Drop the index column
 counts$V1 <- NULL
@@ -107,21 +108,6 @@ dim(counts_subset) # 61386 297
 head(colnames(counts_subset))
 tail(colnames(counts_subset))
 
-# Subset the SLC25 genes
-#sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
-
-# Is every gene present? 
-#setdiff(SLC25, sub_df$'ensembl_ID_no_version') # Victory!
-
-# Number of genes remaining
-#nrow(sub_df) # 53 
-
-# Add gene ID column
-#sub_df$hugo_ID <- SLC
-#sub_df <- sub_df %>% select(hugo_ID, everything())
-#sub_df$ensembl_ID <- NULL
-#sub_df[1:5,1:5]
-
 # Make design matrix; want to end up with 148 paired heart and liver samples
 # to match the GTEx design
 # Subset just 148 samples from each batch to match the GTEx analysis
@@ -130,19 +116,6 @@ counts_subset$ensembl_ID_no_version <- NULL  # Drop the ensembl_ID column before
 # since you need a numeric matrix only
 dim(counts_subset) # 61386 296
 counts_subset[1:5,1:5]
-heart_vec <- rep_len('heart', len=148)
-liver_vec <- rep_len('liver', len=148)
-length(heart_vec) # 148 
-length(liver_vec) # 148
-organ_vect <- c(heart_vec, liver_vec)
-mat <- fastDummies::dummy_cols(organ_vect)
-head(mat);tail(mat)
-class(mat) # data.frame
-mat <- data.matrix(mat)
-class(mat) # matrix
-dim(mat) # 296 3
-nrow(mat);ncol(counts_subset) # 296 296
-nrow(mat)==ncol(counts_subset) # TRUE
 
 # Make design matrix
 batch1_vec <- rep_len('batch1', len=148)
@@ -170,7 +143,7 @@ voom_E <- voom_E %>%
 voom_E[1:5,1:5]
 dim(voom_E) # 61386 297
 class(voom_E)
-write.csv(voom_E, "/scratch/mjpete11/linear_models/data/simulated_error_5_voom_E_object.csv") # float
+#write.csv(voom_E, "/scratch/mjpete11/linear_models/data/simulated_error_5_voom_E_object.csv") # float
 print("completed voom")
 
 # Make design vector for the filtered samples dataframe
@@ -183,9 +156,12 @@ length(batch_vect)==ncol(voom_E)-1 # TRUE
 sapply(batch_vect, class)
 batch_vect <- as.factor(batch_vect)
 sapply(batch_vect, class)
+head(batch_vect)
+batch_dummy_vec <- as.numeric(batch_vect)
+head(batch_dummy_vec);tail(batch_dummy_vec)
 
 # Apply ComBat_seq to the voom adjusted data, using parametric empirical Bayesian adjustment
-combat_edata <- ComBat_seq(counts=as.matrix(voom_E[,2:ncol(voom_E)]), batch=batch_vect)
+combat_edata <- ComBat_seq(counts=voom_obj, batch=batch_dummy_vec)
 class(combat_edata) # matrix
 
 # Append the ensembl_IDs on the dataframe
@@ -243,9 +219,9 @@ median(plotting_df$log2_cpm) # 14
 mean(plotting_df$log2_cpm) # 13.91
 sd(plotting_df$log2_cpm) # 1.50
 sd(plotting_df$log2_cpm) * 6 # +/- 9.01   
-above <- 3.43 + 20.6 # 24.03
-below <- 3.43 - 20.6 # -17.17
-above;below
+above <- mean(plotting_df$log2_cpm) + sd(plotting_df$log2_cpm) * 6
+below <- mean(plotting_df$log2_cpm) - sd(plotting_df$log2_cpm) * 6
+above;below # 22.92, 4.90
 
 # Are there any samples outside of this range?
 range(plotting_df$log2_cpm) # 5 16
@@ -255,9 +231,19 @@ outlier_above <- plotting_df[plotting_df$log2_cpm > above,] # 0 sample
 outlier_below <- plotting_df[plotting_df$log2_cpm < below,] # 0 samples 
 nrow(outlier_below);nrow(outlier_below)
 
+# Convert 'batch' variable to factor and 'log2_cpm' to numeric
+# This is probably driving the errors with the p-value calulcation in
+# stat_compare_means()
+lapply(plotting_df$batch, class) # character
+lapply(plotting_df$log2_cpm, class) # numeric
+
+#plotting_df$batch <- lapply(plotting_df$batch, as.factor) # character
+#lapply(plotting_df$batch, class) # factor 
+# converting to factor causes: Error: Discrete value supplied to continuous scale
+
 # Function to plot violin plots
-#rm(plots)
-#rm(violin)
+rm(plots)
+rm(violin)
 
 violin <- function(GENE){
 		dat <- plotting_df %>% filter(hugo_ID==GENE)
@@ -265,22 +251,24 @@ violin <- function(GENE){
 				stat_compare_means(method = "wilcox.test", 
 								   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
 								   label.x = 1.25, 
-								   label.y = max(dat[["log2_cpm"]]) + 2,
+								   label.y = max(dat[["log2_cpm"]]) + 10,
+								   label.y.npc = "top",
+								   inherit.aes = TRUE,
 								   paired = TRUE) +
 				geom_violin(trim = FALSE) +
 				stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
 				scale_fill_manual(values = c("lightgreen", "purple")) +
 				geom_jitter(size = 1, alpha = 0.9) +
 				labs(x = "batch", y = "log2(CPM(prior.count=0.05))", fill = "") +
-				scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.5")) +
+				scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.001")) +
 				ggtitle(paste0("Violin plot of simulated ", GENE, "\n expression after adjustment via voom and combat_seq")) +
 				theme(plot.title=element_text(hjust=0.5))
-		ggsave(paste0("/scratch/mjpete11/linear_models/batch_correction/simulated_voom_combat_seq/plots_error_5/", GENE, ".png"), device="png")
+		ggsave(paste0("/scratch/mjpete11/linear_models/batch_correction/simulated_voom_combat_seq/plots_error_001/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
 ############################# TEST PLOT ######################################
-dat <- plotting_df %>% filter(hugo_ID=="SLC25A1")
+dat <- plotting_df %>% filter(hugo_ID=="SLC25A2")
 p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
 		stat_compare_means(method = "wilcox.test", 
 						   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
@@ -291,11 +279,11 @@ p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
 		stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
 		scale_fill_manual(values = c("lightgreen", "purple")) +
 		geom_jitter(size = 1, alpha = 0.9) +
-		labs(x = "batch", y = "log2(CPM)", fill = "") +
+		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") +
 		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.001")) +
-		ggtitle(paste0("Violin plot of simulated ", "SLC25A1", "\n expression after adjustment via voom()")) +
+		ggtitle(paste0("Violin plot of simulated ", "SLC25A1", "\n expression after adjustment via voom and combat_seq")) +
 		theme(plot.title=element_text(hjust=0.5))
-ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_voom_batch/plots_error_001/", "SLC25A1", ".png"), device="png")
+ggsave(paste0("/scratch/mjpete11/linear_models/batch_correction/simulated_voom_combat_seq/plots_error_001/", "SLC25A2", ".png"), device="png")
 
 rm(list=ls("p", "dat"))
 ############################# TEST PLOT ######################################
