@@ -1,17 +1,11 @@
 # Purpose: Linear models to assess if SLC paralogs are dependent on energetic state?
 
-# Write error messages to log file
-#warning_file = file("RScriptErrors.log", open = "wt")
-#sink(warning_file, type = "message")
-
 # Libraries
-# using the conflicted package to force all conflicts to become errors
-# tidyverse conflicts with dplyr
-library(conflicted)
-library(tidyverse) 
+library(conflicted) # forces conflicts to become errors
+library(plyr)
 library(dplyr)
-#library(plyr)
 library(data.table)
+library(tidyverse)
 library(reshape)
 library(stringr)
 library(ggplot2)
@@ -19,15 +13,24 @@ library(ggpubr)
 library(rstatix)
 library(stats)
 library(scales)
-#library(limma)
+library(limma)
 library(fastDummies)
 library(edgeR)
 library(sva)
+library(matrixStats)
 
 # Read in counts
-counts <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/combined_simulated_001_batch1_batch2.csv") # integer
+counts <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/combined_simulated_5_batch1_batch2.csv") # integer
 counts[1:5,1:5]
-dim(counts) # 61386 2002
+dim(counts) # 61386 2001
+
+# Is there any variance across samples?  
+# in the simulated dataset error=0.5. No.
+#counts$V1 <- NULL
+#counts$ensembl_ID <- NULL
+#tmp <- as.matrix(counts)
+#class(tmp)
+#all(matrixStats::rowVars(tmp))==0 # TRUE
 
 # Drop the index column
 counts$V1 <- NULL
@@ -63,7 +66,6 @@ SLC25_with_version <- c("ENSG00000100075.10", "ENSG00000120329.7", "ENSG00000075
 		   "ENSG00000137409.20", "ENSG00000109919.10", "ENSG00000122696.14",
 		   "ENSG00000141437.10", "ENSG00000269743.3")
 
-# SLC paralogs without version number (for subsetting) 
 SLC25 <- c("ENSG00000100075", "ENSG00000120329", "ENSG00000075415",
 		   "ENSG00000151729", "ENSG00000005022", "ENSG00000169100",
 		   "ENSG00000109424", "ENSG00000175567", "ENSG00000175564",
@@ -84,38 +86,34 @@ SLC25 <- c("ENSG00000100075", "ENSG00000120329", "ENSG00000075415",
 		   "ENSG00000141437", "ENSG00000269743")
 
 # Convert to df instead of df + datatable
-class(counts) # data.table, data.frame
+class(counts)
 counts <- as.data.frame(counts) 
 
 # Drop the version number (decimals) after the ensembl_ID
+# 3 of the genes drop out if you try to filter with the version number
 counts$ensembl_ID <- as.character(counts$ensembl_ID) # Convert from factor to character 
 class(counts$ensembl_ID) # character
-vec  <- counts$ensembl_ID 
-#vec <- gsub("\\.\\d+", "", counts$ensembl_ID) # write this to file because it takes forever to run
+vec <- gsub("\\.\\d+", "", counts$ensembl_ID) # write this to file because it takes forever to run
 #write.csv(vec, "/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
 #vec <- read.csv("/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
-#counts$ensembl_ID_no_version <- vec
+counts$ensembl_ID_no_version <- vec
 counts[1:5,1:5]
-dim(counts) # 61386 2001
 
 # Move last column first
-#counts <- counts %>% select(ensembl_ID_no_version, everything())
-#counts[1:5,1:5]
-
-# Drop the column with the ensembl_ID without version number
-#counts$ensembl_ID_no_version <- NULL
-#counts[1:5,1:5]
+counts <- counts %>% select(ensembl_ID_no_version, everything())
+counts[1:5,1:5]
+dim(counts) # 61386 2002
 
 # Subset just 148 samples from each batch to match the GTEx analysis
-batch1_samples <- counts[,1:148+1]
-batch2_samples <- counts[,1002:1149]
-head(colnames(batch1_samples))
-head(colnames(batch2_samples))
-tail(colnames(batch1_samples))
-tail(colnames(batch2_samples))
-batch1_samples$ensembl_ID <- vec
-batch2_samples$ensembl_ID <- vec
-counts_subset <- merge(batch1_samples, batch2_samples, by=c("ensembl_ID"))
+test <- counts[,1:148+2]
+test1 <- counts[,1003:1150]
+head(colnames(test))
+head(colnames(test1))
+tail(colnames(test))
+tail(colnames(test1))
+test$ensembl_ID_no_version <- vec
+test1$ensembl_ID_no_version <- vec
+counts_subset <- merge(test, test1, by=c("ensembl_ID_no_version"))
 counts_subset[1:5,1:5]
 dim(counts_subset) # 61386 297
 head(colnames(counts_subset))
@@ -125,12 +123,15 @@ tail(colnames(counts_subset))
 # to match the GTEx design
 # Subset just 148 samples from each batch to match the GTEx analysis
 counts_subset[1:5,1:5]
-counts_subset$ensembl_ID <- NULL  # Drop the ensembl_ID column before applying voom
+counts_subset$ensembl_ID_no_version <- NULL  # Drop the ensembl_ID column before applying voom
 # since you need a numeric matrix only
 dim(counts_subset) # 61386 296
 counts_subset[1:5,1:5]
 
-# Make design matrix
+# Make voom design matrix
+# Voom() wants a matrix to indicate the batch, 
+# combat-seq() accepts only a vector to indicate batch
+# Have to make separate objects to indicate batch for each function
 batch1_vec <- rep_len('batch1', len=148)
 batch2_vec <- rep_len('batch2', len=148)
 length(batch1_vec) # 148 
@@ -139,64 +140,57 @@ batch_vect <- c(batch1_vec, batch2_vec)
 head(batch_vect);tail(batch_vect)
 design_matrix <- as.data.frame(model.matrix(~batch_vect-1))
 # Rename columns so they are more clear
-colnames(design_matrix) <- c("batch1", "batch2")
 head(design_matrix)
+colnames(design_matrix) <- c("batch1", "batch2")
 nrow(design_matrix)==ncol(counts_subset) # TRUE
 dim(counts_subset) # 61386 296
 
-# Apply limma::voom() to counts matrix to normalize and write to file
+# Apply limma::voom() to the subsetted counts matrix to normalize and write to file
 voom_obj <- voom(counts=counts_subset, design=design_matrix, normalize.method="quantile")  
 head(voom_obj$E)
+class(voom_obj$E) # matrix, array
+dim(voom_obj) # 61386 296
 
-# Store voom adjusted values
-voom_E <- as.data.frame(voom_obj$E)
-
-# Don't need this step bc combat-seq wants only the matrix
+# Store voom adjusted values as a  object
+# Has to be a matrix or else combat-seq returns a list instead of a matrix
+# Don't append gene IDs until after applying combat-seq 
+voom_E <- voom_obj$E
+dim(voom_E) # 61386 296
+voom_E[1:5,1:5]
+class(voom_E) # matrix, array
 #voom_E$ensembl_IDs  <- vec 
-#voom_E[1:5,1:5]
 # Move the ensembl_ID column to the front
 #voom_E <- voom_E %>%
 #		  dplyr::select(ensembl_IDs, everything())
 #voom_E[1:5,1:5]
-dim(voom_E) # 61386 296
-class(voom_E)
 #write.csv(voom_E, "/scratch/mjpete11/linear_models/data/simulated_error_5_voom_E_object.csv") # float
 print("completed voom")
 
+# Is there any variance across samples? 
+# ComBat failed with error: rror in solve.default(crossprod(design), 
+# tcrossprod(t(design), as.matrix(dat))) : no right-hand side in 'b'
+# in the simulated dataset error=0.5
+all(matrixStats::rowVars(voom_E))==0.000000e+00 # TRUE
+
 # Make design vector for the filtered samples dataframe
+# Combat-seq() required a vector to indicate batch
 batch1_vec <- rep_len('batch1', len=ncol(voom_E)/2)
 batch2_vec <- rep_len('batch2', len=ncol(voom_E)/2)
 length(batch1_vec) # 148 
 length(batch2_vec) # 148
 batch_vect <- c(batch1_vec, batch2_vec)
-length(batch_vect)==ncol(voom_E)-1 # TRUE
+length(batch_vect)==ncol(voom_E) # TRUE
 sapply(batch_vect, class)
-batch_vect <- as.factor(batch_vect) # Has to be factor variables
+batch_vect <- as.factor(batch_vect)
 sapply(batch_vect, class)
 head(batch_vect)
 batch_dummy_vec <- as.numeric(batch_vect)
 head(batch_dummy_vec);tail(batch_dummy_vec)
 
-# Drop the ensembl_ID column from the voom adjusted expression dataframe
-# Combat_seq wants a matrix only
-# we will want the gene names after applying combat-seq
-length(vec)==nrow(voom_E) # TRUE 
-#voom_E$ensembl_IDs <- NULL
-#dim(voom_E) # 61386 296
-voom_mat <- as.matrix(voom_E)
-class(voom_mat) # matrix
-dim(voom_mat) # 61386 296
-
-# Transpose the voom E data.frame so the samples are the rows
-# and the genes are the columns
-# Combat-Seq wants the rows (samples) of the expression matrix
-# to match the length of the sample design vector
-#trans_voom <- t(voom_mat)
-#dim(trans_voom)
-
 # Apply ComBat_seq to the voom adjusted data, using parametric empirical Bayesian adjustment
-combat_edata <- ComBat_seq(counts=voom_mat, batch=batch_dummy_vec)
+combat_edata <- ComBat(dat=voom_E, batch=batch_dummy_vec)
 class(combat_edata) # matrix
+head(combat_edata)
 
 # Append the ensembl_IDs on the dataframe
 combat_edata <- as.data.frame(combat_edata)
@@ -211,7 +205,7 @@ class(combat_edata) # data.frame
 
 # Subset the gene_counts df using the ensembl_IDs; then use the corresponding
 # index to subset the voom-transformed matrix (plotting_df)
-gene_counts <- combat_edata[combat_edata$ensembl_IDs %in% SLC25_with_version,]
+gene_counts <- combat_edata[combat_edata$ensembl_IDs %in% SLC25,]
 gene_counts[1:5,1:5]
 dim(gene_counts) # 53 297
 
@@ -227,9 +221,7 @@ gene_counts[1:5,1:5]
 plotting_df <- gene_counts %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_IDs"))
 head(plotting_df)
 dim(plotting_df) # 15688 4
-
-# Correct number of rows?
-53 * 296 # 15688
+nrow(plotting_df)==53 * 296 # TRUE
 
 # Rename column labeling the batch
 colnames(plotting_df)[3] <- c("sample")
@@ -245,27 +237,27 @@ head(plotting_df);tail(plotting_df)
 
 # Add a column with the log2(CPM) transformed value
 #### skipping this step because the voom() function inclused the cpm() function
-plotting_df$log2_cpm <- cpm(plotting_df$value, log=TRUE, prior.count=0.5)
-head(plotting_df)
+#plotting_df$log2_cpm <- cpm(plotting_df$value, log=TRUE, prior.count=0.5)
+#head(plotting_df)
 
 # Rename the 'value' column to log2_cpm
 colnames(plotting_df)[4] <- "log2_cpm"
 
 # Remove samples >6 standard deviations away
-median(plotting_df$log2_cpm) # 14 
-mean(plotting_df$log2_cpm) # 13.91
-sd(plotting_df$log2_cpm) # 1.50
-sd(plotting_df$log2_cpm) * 6 # +/- 9.01   
+median(plotting_df$log2_cpm) # 0.001, 0.05, 0.5 --> 13.96, 13.96, 14 
+mean(plotting_df$log2_cpm) # 0.001, 0.05, 0.5 -->  13.88, 13.88, 13.91
+sd(plotting_df$log2_cpm) # 0.001, 0.05, 0.5 --> 1.51, 1.50, 0.40
+sd(plotting_df$log2_cpm) * 6 # 0.001, 0.05, 0.5 --> +/- 9.07, 9.03, 2.4   
 above <- mean(plotting_df$log2_cpm) + sd(plotting_df$log2_cpm) * 6
 below <- mean(plotting_df$log2_cpm) - sd(plotting_df$log2_cpm) * 6
-above;below # 22.92, 4.90
+above;below # 0.001 --> 22.96, 4.81; 0.05 --> 22.91, 4.85, 0.5 --> 16.32, 11.50
 
 # Are there any samples outside of this range?
-range(plotting_df$log2_cpm) # 5 16
+range(plotting_df$log2_cpm) # 4.90 15.48; 4.14, 15.50; 11, 15
 
 # Number of samples outside of this range
-outlier_above <- plotting_df[plotting_df$log2_cpm > above,] # 0 sample  
-outlier_below <- plotting_df[plotting_df$log2_cpm < below,] # 0 samples 
+outlier_above <- plotting_df[plotting_df$log2_cpm > above,] # 296 samples, 294 sample, 148  
+outlier_below <- plotting_df[plotting_df$log2_cpm < below,] # 296 samples, 294 samples, 148 (???)
 nrow(outlier_below);nrow(outlier_below)
 
 # Convert 'batch' variable to factor and 'log2_cpm' to numeric
@@ -283,12 +275,12 @@ rm(plots)
 rm(violin)
 
 violin <- function(GENE){
-		dat <- plotting_df %>% rstatix::filter(hugo_ID==GENE)
+		dat <- plotting_df %>% dplyr::filter(hugo_ID==GENE)
 		p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
 				stat_compare_means(method = "wilcox.test", 
 								   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
 								   label.x = 1.25, 
-								   label.y = max(dat[["log2_cpm"]]) + 10,
+								   label.y = max(dat[["log2_cpm"]]) + 1.5,
 								   label.y.npc = "top",
 								   inherit.aes = TRUE,
 								   paired = TRUE) +
@@ -297,30 +289,40 @@ violin <- function(GENE){
 				scale_fill_manual(values = c("lightgreen", "purple")) +
 				geom_jitter(size = 1, alpha = 0.9) +
 				labs(x = "batch", y = "log2(CPM(prior.count=0.05))", fill = "") +
-				scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.001")) +
-				ggtitle(paste0("Violin plot of simulated ", GENE, "\n expression after adjustment via voom and combat_seq")) +
+				scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.5")) +
+				ggtitle(paste0("Violin plot of simulated ", GENE, "\n expression after adjustment via voom and combat")) +
 				theme(plot.title=element_text(hjust=0.5))
-		ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/batch_correction/simulated_voom_combat_seq/plots_error_001/", GENE, ".png"), device="png")
+		ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/batch_correction/simulated_voom_combat/plots_error_5/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
+# test each plot individually...getting an error
+# 1: Computation failed in `stat <- compare <- means()`                                                                                                             
+#Caused by error in `data.frame()`:                                                                                                                          
+#! arguments imply differing number of rows: 0, 1 
+# Error occurs in SLC25A39 and SLC25A53
+# stat_compare_menas() won't compute p-val because the means are identical
+violin(GENE=SLC[[39]])
+violin(GENE=SLC[[53]])
+
 ############################# TEST PLOT ######################################
-dat <- plotting_df %>% filter(hugo_ID=="SLC25A2")
+dat <- plotting_df %>% dplyr::filter(hugo_ID=="SLC25A5")
+head(dat);tail(dat)
 p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
 		stat_compare_means(method = "wilcox.test", 
 						   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
 						   label.x = 1.25, 
-						   label.y = max(dat[["log2_cpm"]]) + 0.5,
+						   label.y = max(dat[["log2_cpm"]]) + 1.5,
 						   paired = TRUE) +
-		geom_violin(trim = FALSE) +
+		geom_violin(trim = TRUE) +
 		stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
 		scale_fill_manual(values = c("lightgreen", "purple")) +
 		geom_jitter(size = 1, alpha = 0.9) +
 		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") +
 		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.001")) +
-		ggtitle(paste0("Violin plot of simulated ", "SLC25A1", "\n expression after adjustment via voom and combat_seq")) +
+		ggtitle(paste0("Violin plot of simulated ", "SLC25A5", "\n expression after adjustment via voom and combat_seq")) +
 		theme(plot.title=element_text(hjust=0.5))
-ggsave(paste0("/scratch/mjpete11/linear_models/batch_correction/simulated_voom_combat_seq/plots_error_001/", "SLC25A2", ".png"), device="png")
+ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/batch_correction/simulated_voom_combat_seq/plots_error_001/", "SLC25A5", ".png"), device="png")
 
 rm(list=ls("p", "dat"))
 ############################# TEST PLOT ######################################
