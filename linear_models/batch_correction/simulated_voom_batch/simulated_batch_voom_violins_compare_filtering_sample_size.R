@@ -125,21 +125,42 @@ dim(means_counts) #  57 2001
 # if no filtering --> use counts to create design matrix
 
 
-######## NOTE: fix design matrix! 13 samples in batch <- 1 and 27 samples in batch_2!
+######## NOTE: fix design matrix! 13 samples in batch_1 and 27 samples in batch_2!
 # Make design matrix
 batch1_vec <- rep_len('batch1', len=13)
-batch2_vec <- rep_len('batch2', len=27)
+batch2_vec <- rep_len('batch2', len=37)
 length(batch1_vec) # 1000 
 length(batch2_vec) # 1000
 batch_vect <- c(batch1_vec, batch2_vec)
 design_matrix <- as.data.frame(model.matrix(~batch_vect-1))
 # Rename columns so they are more clear
 colnames(design_matrix) <- c("batch1", "batch2")
-nrow(design_matrix)==ncol(counts[2:ncol(counts)]) # TRUE
+dim(design_matrix) # 50 2
 
-# Apply limma::voom() to counts matrix to normalize and write to file
+# Make the comparison groups unever
+# n=37 in batch_1 and n=13 in batch_2 to mimic ICM vs DCM in aim 3
+subset_df <- counts[,2:38]
+head(colnames(subset_df))
+tail(colnames(subset_df))
+subset_df1 <- counts[,1002:1014]
+head(colnames(subset_df1))
+tail(colnames(subset_df1))
+subset_df$ensembl_ID <- counts$ensembl_ID  
+subset_df1$ensembl_ID <- counts$ensembl_ID
+counts_subset <- merge(subset_df, subset_df1, by=c("ensembl_ID"))
+counts_subset[1:5,1:5]
+dim(counts_subset) # 61358 51 
+head(colnames(counts_subset))
+tail(colnames(counts_subset))
+counts_subset[1:5,1:5]
+dim(counts_subset) # 61358 2001
+
+# number of rows in the design matrix needs to be equal to the number of colums in the count matrix
+nrow(design_matrix)==ncol(counts_subset[2:ncol(counts_subset)]) # TRUE
+
+# Apply limma::voom() to counts_subset matrix to normalize and write to file
 # Skip the ensembl_IDs column
-voom_obj <- voom(counts=counts[2:ncol(counts)], design=design_matrix, normalize.method="quantile")  
+voom_obj <- voom(counts=counts_subset[2:ncol(counts_subset)], design=design_matrix, normalize.method="quantile")  
 head(voom_obj$E)
 
 # Store voom adjusted values
@@ -176,26 +197,14 @@ sub_df[1:5,1:5]
 
 # Subset the gene_counts df using the ensembl_IDs; then use the corresponding
 # index to subset the voom-transformed matrix (plotting_df)
+gene_counts <- counts
 gene_counts <- voom_E[voom_E$ensembl_IDs %in% SLC25,]
 gene_counts[1:5,1:5]
-dim(gene_counts) # 53 2002 
+dim(gene_counts) # 53 51 
 
-# Make the comparison groups unever
-# n=37 in batch_1 and n=13 in batch_2 to mimic ICM vs DCM in aim 3
-subset_df <- gene_counts[,2:38]
-head(colnames(subset_df))
-tail(colnames(subset_df))
-subset_df1 <- gene_counts[,1002:1014]
-head(colnames(subset_df1))
-tail(colnames(subset_df1))
-subset_df$ensembl_ID <- gene_counts$ensembl_ID  
-subset_df1$ensembl_ID <- gene_counts$ensembl_ID
-counts_subset <- merge(subset_df, subset_df1, by=c("ensembl_ID"))
-counts_subset[1:5,1:5]
+# Subset to just the SLC25 mitochondrial paralogs
+counts_subset <- counts_subset %>% filter(ensembl_ID %in% SLC25)
 dim(counts_subset) # 53 51 
-head(colnames(counts_subset))
-tail(colnames(counts_subset))
-counts_subset[1:5,1:5]
 
 # Add gene ID column so I can merge on 2 columns
 counts_subset$hugo_ID <- SLC
@@ -212,8 +221,8 @@ dim(plotting_df) # 2650 4
 colnames(plotting_df)[3] <- c("sample")
 
 # Add a column with the batch to the plotting dataframe
-batch1_vect <- rep_len('batch1', len=nrow(plotting_df)/2)
-batch2_vect <- rep_len('batch2', len=nrow(plotting_df)/2)
+batch1_vect <- rep_len('batch1', len=13)
+batch2_vect <- rep_len('batch2', len=37)
 length(batch1_vect) # 1325  
 length(batch2_vect) # 1325
 batch_vec <- c(batch1_vect, batch2_vect)
@@ -251,7 +260,7 @@ violin <- function(GENE){
 				stat_compare_means(method = "wilcox.test", 
 								   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
 								   label.x = 1.25, 
-								   label.y = max(dat[["log2_cpm"]]) + 0.2,
+								   label.y = max(dat[["log2_cpm"]]) + 0.5,
 								   paired = TRUE) +
 				geom_violin(trim = FALSE) +
 				stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
