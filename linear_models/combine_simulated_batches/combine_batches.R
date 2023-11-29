@@ -62,12 +62,19 @@ dim(batch1)==dim(batch2) # TRUE TRUE
 # Order ensembl_IDs to be the same order in both dataframes for merging
 batch1 <- batch1 %>% arrange(ensembl_ID, batch2$ensembl_ID)
 
+# Merge with suffixes only works if the column names are the same
+# I did not add a zero before samples 1:9 in the second batch...
+# Dropping the zero in the sample names in batch1
+colnames(batch1)[2:10] <- c("sample_1","sample_2","sample_3","sample_4","sample_5","sample_6","sample_7","sample_8","sample_9") 
+colnames(batch1)[1:12]
+
 # Combines into one dataset
 combined <- merge(batch1, batch2, by="ensembl_ID", all=TRUE, suffixes=c("_batch1", "_batch2"))
-head(combined)
+combined[1:5,1:5]
 any(is.na(combined)) # FALSE
 head(combined$ensembl_ID)
 head(colnames(combined))
+colnames(combined)[1000:1020] # check that samples 1:9 don't have a zero in the column name so I can merge later...
 tail(colnames(combined))
 dim(combined) # 61358 2001
 combined[1:5,1:5]
