@@ -124,29 +124,27 @@ dim(means_counts) #  57 2001
 # if use rowMeans() --> use means_counts to create design matrix
 # if no filtering --> use counts to create design matrix
 
-
-######## NOTE: fix design matrix! 13 samples in batch_1 and 27 samples in batch_2!
-# Make design matrix
+# Make design matrix; comparison groups will be uneven this time
 batch1_vec <- rep_len('batch1', len=13)
 batch2_vec <- rep_len('batch2', len=37)
-length(batch1_vec) # 1000 
-length(batch2_vec) # 1000
+length(batch1_vec) # 13 
+length(batch2_vec) # 37 
 batch_vect <- c(batch1_vec, batch2_vec)
 design_matrix <- as.data.frame(model.matrix(~batch_vect-1))
 # Rename columns so they are more clear
 colnames(design_matrix) <- c("batch1", "batch2")
 dim(design_matrix) # 50 2
 
-# Make the comparison groups unever
-# n=37 in batch_1 and n=13 in batch_2 to mimic ICM vs DCM in aim 3
-subset_df <- counts[,2:38]
+# Make the comparison groups uneven
+# n=13 in batch_1 and n=37 in batch_2 to mimic ICM vs DCM in aim 3
+subset_df <- means_counts[,2:38]
 head(colnames(subset_df))
 tail(colnames(subset_df))
-subset_df1 <- counts[,1002:1014]
+subset_df1 <- means_counts[,1002:1014]
 head(colnames(subset_df1))
 tail(colnames(subset_df1))
-subset_df$ensembl_ID <- counts$ensembl_ID  
-subset_df1$ensembl_ID <- counts$ensembl_ID
+subset_df$ensembl_ID <- means_counts$ensembl_ID  
+subset_df1$ensembl_ID <- means_counts$ensembl_ID
 counts_subset <- merge(subset_df, subset_df1, by=c("ensembl_ID"))
 counts_subset[1:5,1:5]
 dim(counts_subset) # 61358 51 
@@ -162,16 +160,17 @@ nrow(design_matrix)==ncol(counts_subset[2:ncol(counts_subset)]) # TRUE
 # Skip the ensembl_IDs column
 voom_obj <- voom(counts=counts_subset[2:ncol(counts_subset)], design=design_matrix, normalize.method="quantile")  
 head(voom_obj$E)
+tail(voom_obj$E)
 
 # Store voom adjusted values
 voom_E <- as.data.frame(voom_obj$E)
-voom_E$ensembl_IDs <- counts$ensembl_ID 
+voom_E$ensembl_IDs <- means_counts$ensembl_ID 
 voom_E[1:5,1:5]
 # Move the ensembl <- ID column to the front
 voom_E <- voom_E %>%
 		  dplyr::select(ensembl_IDs, everything())
 voom_E[1:5,1:5]
-dim(voom_E) # 57 2001 
+dim(voom_E) # 61358 51 
 class(voom_E) # data.frame
 #write.csv(voom_E, "/scratch/mjpete11/linear_models/data/simulated_data_voom_E_blocking_by_batch.csv") # float
 print("completed voom")
@@ -179,7 +178,7 @@ print("completed voom")
 # Subset the SLC25 genes from the voom results
 #sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
 #sub_df <- counts_subset[counts_subset$"ensembl_ID" %in% SLC25, ]
-sub_df <- counts[counts$"ensembl_ID" %in% SLC25, ]
+sub_df <- means_counts[means_counts$"ensembl_ID" %in% SLC25, ]
 #sub_df <- counts[counts$"ensembl_ID" %in% SLC25, ]
 
 # Is every gene present? 
@@ -197,7 +196,7 @@ sub_df[1:5,1:5]
 
 # Subset the gene_counts df using the ensembl_IDs; then use the corresponding
 # index to subset the voom-transformed matrix (plotting_df)
-gene_counts <- counts
+gene_counts <- means_counts
 gene_counts <- voom_E[voom_E$ensembl_IDs %in% SLC25,]
 gene_counts[1:5,1:5]
 dim(gene_counts) # 53 51 
@@ -223,8 +222,8 @@ colnames(plotting_df)[3] <- c("sample")
 # Add a column with the batch to the plotting dataframe
 batch1_vect <- rep_len('batch1', len=13)
 batch2_vect <- rep_len('batch2', len=37)
-length(batch1_vect) # 1325  
-length(batch2_vect) # 1325
+length(batch1_vect) # 13  
+length(batch2_vect) # 37 
 batch_vec <- c(batch1_vect, batch2_vect)
 plotting_df$batch <- batch_vec
 head(plotting_df);tail(plotting_df)
@@ -257,20 +256,20 @@ rm(violin)
 violin <- function(GENE){
 		dat <- plotting_df %>% filter(hugo_ID==GENE)
 		p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
-				stat_compare_means(method = "wilcox.test", 
+				stat_compare_means(method = "t.test", 
 								   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
 								   label.x = 1.25, 
 								   label.y = max(dat[["log2_cpm"]]) + 0.5,
-								   paired = TRUE) +
+								   paired = FALSE) +
 				geom_violin(trim = FALSE) +
 				stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
 				scale_fill_manual(values = c("lightgreen", "purple")) +
 				geom_jitter(size = 1, alpha = 0.9) +
 				labs(x = "batch", y = "log2(CPM(prior.count=0.05))", fill = "") +
 				scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.2")) +
-				ggtitle(paste("Violin plot of simulated ", GENE, "expression after \n adjustment via voom() with uneven comparison groups \n without filtering")) +
+				ggtitle(paste("Violin plot of simulated ", GENE, "expression after \n adjustment via voom() with uneven comparison groups \n filtering with rowMeans()")) +
 				theme(plot.title=element_text(hjust=0.5))
-		ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/batch_correction/simulated_voom_batch/uneven_groups_no_filter_plots_error_2/", GENE, ".png"), device="png")
+		ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/batch_correction/simulated_voom_batch/uneven_groups_means_plots_error_2/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
