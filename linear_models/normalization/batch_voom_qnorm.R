@@ -13,7 +13,9 @@ library(ggpubr)
 #_______________________________________________________________________________ 
 # Read in filtered counts 
 #_______________________________________________________________________________ 
-counts <- fread("/scratch/mjpete11/linear_models/data/filtered_counts.csv", sep=",")
+counts <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/filtered_counts.csv", sep=",")
+counts[1:5,1:5]
+dim(counts) # 51259 17313
 
 # Drop the index column
 counts$V1 <- NULL
@@ -48,7 +50,7 @@ names(sub_df) <- gsub(x=names(sub_df), pattern="\\.", replacement="-")
 setdiff(SLC, sub_df$'Description') 
 
 # Read in sample attributes files
-file <- read.csv("/scratch/mjpete11/linear_models/data/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt", sep="\t")
+file <- read.csv("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt", sep="\t")
 
 # Subset heart left ventricle and liver samples into two separate dfs
 heart <- file[file$SMTSD %in% "Heart - Left Ventricle", ]
@@ -132,7 +134,7 @@ length(unique(organs_tmp$SUBJID)) # 148 individuals
 #write.table(organs, "/scratch/mjpete11/linear_models/data/organs_combat_seq.csv", sep=",")
 
 # Use this file to create the design matrix
-organs <- read.csv("/scratch/mjpete11/linear_models/data/filtered_counts_organ_metadata.csv", sep=",")
+organs <- read.csv("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/filtered_counts_organ_metadata.csv", sep=",")
 
 # Drop samples from the counts df that are not from paired heart or liver
 keeps <- as.vector(organs$SAMPID)
@@ -171,9 +173,36 @@ print("completed ordered counts matrix")
 #voom_obj <- voom(counts=counts_mat[1:20,1:20], design=mat[1:20,], normalize.method="quantile", save.plot=TRUE) # TEST 
 voom_obj <- voom(counts=counts_mat, design=mat, normalize.method="quantile")  
 print("completed voom")
+dim(voom_obj$E)
+voom_obj$E[1:5,1:5]
+
+# delete a couple of objects to free up some space bc it keeps freezing
+ls()
+rm(list=c("counts_mat", "counts2", "counts3", "heart", "heart2", "heart3", "heart4", "ordered_counts", "organs",
+           "organs_tmp", "organs0", "sub_df", "tmp1", "tmp2"))
+# force garbage collection
+gc()
+
+# Append the HUGO gene names on to the voom adjusted results
+res <- voom_obj$E
+class(res)
+res <- as.data.frame(res)
+dim(res) # 51259 15984
+dim(counts) # 51259 17312
+gene_names <- counts$Description
+class(gene_names) # character
+gene_names <- as.list(gene_names) # convert to list object so it can be appended to a dataframe
+class(gene_names)
+res$hugo_names <- gene_names
+res[1:5,1:5]
+# drop duplicate column names
+res <- res[, !duplicated(colnames(res))]
+# move the hugo_names to the first column
+res <- res %>% select(hugo_names, everything())
+res[1:5,1:5]
 
 # Write the matrix of normalized expression values on log2 scale to file
-#write.csv(voom_obj$E, "/scratch/mjpete11/linear_models/data/batch_voom_qnorm_matrix.csv")
+write.csv(voom_obj$E, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/batch_voom_qnorm_matrix.csv")
 
 # Perform differential expression
 #fit <- lmFit(voom_obj, mat[1:20,])
