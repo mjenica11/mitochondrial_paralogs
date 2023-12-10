@@ -200,9 +200,13 @@ res <- res[, !duplicated(colnames(res))]
 # move the hugo_names to the first column
 res <- res %>% select(hugo_names, everything())
 res[1:5,1:5]
+head(sapply(res, class))
+# convert the first column from list to character
+res$hugo_names <- as.character(res$hugo_names)
+head(sapply(res, class))
 
 # Write the matrix of normalized expression values on log2 scale to file
-write.csv(voom_obj$E, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/batch_voom_qnorm_matrix.csv")
+write.csv(res, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/batch_voom_qnorm_matrix.csv")
 
 # Perform differential expression
 #fit <- lmFit(voom_obj, mat[1:20,])
