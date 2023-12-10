@@ -137,14 +137,14 @@ dim(design_matrix) # 50 2
 
 # Make the comparison groups uneven
 # n=13 in batch_1 and n=37 in batch_2 to mimic ICM vs DCM in aim 3
-subset_df <- means_counts[,2:38]
+subset_df <- sums_counts[,2:38]
 head(colnames(subset_df))
 tail(colnames(subset_df))
-subset_df1 <- means_counts[,1002:1014]
+subset_df1 <- sums_counts[,1002:1014]
 head(colnames(subset_df1))
 tail(colnames(subset_df1))
-subset_df$ensembl_ID <- means_counts$ensembl_ID  
-subset_df1$ensembl_ID <- means_counts$ensembl_ID
+subset_df$ensembl_ID <- sums_counts$ensembl_ID  
+subset_df1$ensembl_ID <- sums_counts$ensembl_ID
 counts_subset <- merge(subset_df, subset_df1, by=c("ensembl_ID"))
 counts_subset[1:5,1:5]
 dim(counts_subset) # 61358 51 
@@ -164,7 +164,7 @@ tail(voom_obj$E)
 
 # Store voom adjusted values
 voom_E <- as.data.frame(voom_obj$E)
-voom_E$ensembl_IDs <- means_counts$ensembl_ID 
+voom_E$ensembl_IDs <- sums_counts$ensembl_ID 
 voom_E[1:5,1:5]
 # Move the ensembl <- ID column to the front
 voom_E <- voom_E %>%
@@ -172,13 +172,13 @@ voom_E <- voom_E %>%
 voom_E[1:5,1:5]
 dim(voom_E) # 61358 51 
 class(voom_E) # data.frame
-#write.csv(voom_E, "/scratch/mjpete11/linear_models/data/simulated_data_voom_E_blocking_by_batch.csv") # float
+write.csv(voom_E, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/simulated_data_voom_E_blocking_by_batch.csv") # float
 print("completed voom")
 
 # Subset the SLC25 genes from the voom results
 #sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
 #sub_df <- counts_subset[counts_subset$"ensembl_ID" %in% SLC25, ]
-sub_df <- means_counts[means_counts$"ensembl_ID" %in% SLC25, ]
+sub_df <- sums_counts[sums_counts$"ensembl_ID" %in% SLC25, ]
 #sub_df <- counts[counts$"ensembl_ID" %in% SLC25, ]
 
 # Is every gene present? 
@@ -196,7 +196,7 @@ sub_df[1:5,1:5]
 
 # Subset the gene_counts df using the ensembl_IDs; then use the corresponding
 # index to subset the voom-transformed matrix (plotting_df)
-gene_counts <- means_counts
+gene_counts <- sums_counts
 gene_counts <- voom_E[voom_E$ensembl_IDs %in% SLC25,]
 gene_counts[1:5,1:5]
 dim(gene_counts) # 53 51 
@@ -267,9 +267,9 @@ violin <- function(GENE){
 				geom_jitter(size = 1, alpha = 0.9) +
 				labs(x = "batch", y = "log2(CPM(prior.count=0.05))", fill = "") +
 				scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.2")) +
-				ggtitle(paste("Violin plot of simulated ", GENE, "expression after \n adjustment via voom() with uneven comparison groups \n filtering with rowMeans()")) +
+				ggtitle(paste("Violin plot of simulated ", GENE, "expression after \n adjustment via voom() with uneven comparison groups \n filtering with rowSums()")) +
 				theme(plot.title=element_text(hjust=0.5))
-		ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/batch_correction/simulated_voom_batch/uneven_groups_means_plots_error_2/", GENE, ".png"), device="png")
+		ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/batch_correction/simulated_voom_batch/uneven_groups_sums_plots_error_2/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
