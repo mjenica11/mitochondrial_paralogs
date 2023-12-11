@@ -158,6 +158,10 @@ t_heart <- as.data.frame(t_heart)
 class(t_heart) # data.frame 
 # Convert the rownames into a column
 t_heart$hugo_id <- rownames(t_heart)
+# Move the hugo ID column to the begining
+t_heart <- t_heart %>% select(hugo_id, everything())
+# Drop the rownames
+rownames(t_heart) <- NULL
 t_heart[1:5,1:5]
 
 # Repeat data wrangling with the liver data so it is in a format acceptable with MaREA
@@ -174,9 +178,13 @@ t_liver <- as.data.frame(t_liver)
 class(t_liver) # data.frame 
 # Convert the rownames into a column
 t_liver$hugo_id <- rownames(t_liver)
+# Move the hugo ID column to the begining
+t_liver <- t_liver %>% select(hugo_id, everything())
+# Drop the rownames
+rownames(t_liver) <- NULL
 t_liver[1:5,1:5]
 
 # Write to file
-write_tsv(t_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/heart_df.tsv")
-write_tsv(t_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/liver_df.tsv")
+write_tsv(t_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/heart_df.tsv")
+write_tsv(t_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/liver_df.tsv")
 
