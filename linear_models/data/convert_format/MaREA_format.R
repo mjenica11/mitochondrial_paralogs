@@ -152,17 +152,31 @@ t_heart[1:5,1:5]
 t_heart <- t_heart[!(row.names(t_heart)) %in% c("organ"),] 
 # Make the sample ID row into the column names
 t_heart <- t_heart %>% row_to_names(1)
-# Convert the values from character to float
-t_heart <- sapply(t_heart, as.numeric)
-###### stopped here
-###### idk why the next step causes it to fail
+class(t_heart) # matrix, array
+# Convert to dataframe so the floats are encoded as numeric and not as strings
+t_heart <- as.data.frame(t_heart)
+class(t_heart) # data.frame 
 # Convert the rownames into a column
 t_heart$hugo_id <- rownames(t_heart)
 t_heart[1:5,1:5]
+
+# Repeat data wrangling with the liver data so it is in a format acceptable with MaREA
 t_liver <- t(liver_df)
 dim(t_liver) # 51261 148
+t_liver[1:5,1:5]
+# Drop the organ row
+t_liver <- t_liver[!(row.names(t_liver)) %in% c("organ"),] 
+# Make the sample ID row into the column names
+t_liver <- t_liver %>% row_to_names(1)
+class(t_liver) # matrix, array
+# Convert to dataframe so the floats are encoded as numeric and not as strings
+t_liver <- as.data.frame(t_liver)
+class(t_liver) # data.frame 
+# Convert the rownames into a column
+t_liver$hugo_id <- rownames(t_liver)
+t_liver[1:5,1:5]
 
-
-write_tsv(heart_df, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/heart_df.tsv")
-write_tsv(liver_df, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/liver_df.tsv")
+# Write to file
+write_tsv(t_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/heart_df.tsv")
+write_tsv(t_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/liver_df.tsv")
 
