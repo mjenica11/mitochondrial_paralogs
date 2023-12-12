@@ -58,8 +58,6 @@ dim(liver2) # 4741 149
 # Sort the columns to be in the same order
 # The sample names will only be partial matches because the last 5 characters indicate
 # organ that was sampled
-heart3 <- heart2 # make a copy dataframe
-heart3[unlist(lapply(gsub("\\d+", "", colnames(liver2[2:ncol(liver2)]), function(x) grep(x, colnames(heart3)))))]
 
 # Create a vector of strings of the sample IDs from the column names
 heart_sample_id <- str_sub(colnames(heart2), start=1L, end=10L)
@@ -95,16 +93,52 @@ setcolorder(liver2, match(seq_along(liver2), idx))
 head(colnames(liver2));head(colnames(heart2)) # Sample IDs are in the right order
 tail(colnames(liver2));tail(colnames(heart2)) # Sample IDs are in the right order
 
+# Change the first column name to "Reaction ID" to match the website
+# http://marea4galaxy.cloud.ba.infn.it/galaxy
+#colnames(heart2)[1] <- "Reaction ID"
+#colnames(liver2)[1] <- "Reaction ID"
+#head(colnames(liver2));head(colnames(heart2)) # Sample IDs are in the right order
+
+# Round is failing; values appear to not be encoded as floats
+lapply(heart2, class) # every column is a character vector
+
+# Convert numeric values from character to float 
+dim(heart2[,2:ncol(heart2)]) # 4741 148
+class(heart2) # data.table data.frame
+heart3 <- sapply(heart2[,2:ncol(heart2)], as.numeric)
+lapply(heart3, class)[1:2] # every column is a character vector
+heart3 <- as.data.frame(heart3)
+class(heart3)
+heart3[1:5,1:5]
+
+dim(liver2[,2:ncol(liver2)]) # 4741 148
+class(liver2) # data.table data.frame
+liver3 <- sapply(liver2[,2:ncol(liver2)], as.numeric)
+lapply(liver3, class)[1:2] # every column is a character vector
+liver3 <- as.data.frame(liver3)
+class(liver3)
+liver3[1:5,1:5]
+
+# Append the reaction IDs back onto the dataframe
+heart3$Reactions <- heart2$Reactions
+liver3$Reactions <- liver2$Reactions
+# Move "Reactions" column to the front
+heart3 <- heart3 %>% select(Reactions, everything())
+heart3[1:5,1:5]
+liver3 <- liver3 %>% select(Reactions, everything())
+liver3[1:5,1:5]
+dim(heart3)==dim(liver3) # TRUE TRUE
+
 # Write to file
-liver_RAS <- write.table(liver2, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/liver_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
-heart_RAS <- write.table(heart2, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/heart_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
+write.table(liver3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/liver_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
+write.table(heart3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/heart_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
 
 # Write a small subset to file
-small_heart <- heart2[1:10,1:10]
-small_liver <- liver2[1:10,1:10]
-small_heart 
-small_liver
+small_heart <- heart3[1:10,1:10]
+small_liver <- liver3[1:10,1:10]
+small_heart[1:5,1:5] 
+small_liver[1:5,1:5]
 
 # Write to file
-small_liver_RAS <- write.table(small_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_liver_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
-small_heart_RAS <- write.table(small_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_heart_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
+write.table(small_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_liver_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
+write.table(small_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_heart_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
