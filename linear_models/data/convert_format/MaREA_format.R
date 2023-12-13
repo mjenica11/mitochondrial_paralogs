@@ -101,10 +101,28 @@ ordered_expr3$Hugo_ID <- expr$Hugo_ID
 ordered_expr3 <- ordered_expr3 %>% select(Hugo_ID, everything())
 ordered_expr3[1:5,1:5]
 
+# MaREA complains there are duplicated rows...investigate
+length(unique(ordered_expr3$Hugo_ID)) # 54592
+nrow(ordered_expr3)-length(unique(ordered_expr3$Hugo_ID)) # 1608 duplicated rows
+dup <- table(ordered_expr3$Hugo_ID)
+any(dup) != 1 # FALSE --> There are no duplicates...
+ordered_expr4 <- ordered_expr3 %>% distinct(Hugo_ID, .keep_all = FALSE)
+dim(ordered_expr4) # 54592 297 -->  no difference in the number of rows
+any(duplicated(ordered_expr3$Hugo_ID))==TRUE # TRUE.. so there are duplicates...
+any(duplicated(ordered_expr4$Hugo_ID))==TRUE # FALSE.. so there are duplicates but the same number of rows???
+nrow(ordered_expr4)==nrow(ordered_expr3) # FALSE
+nrow(ordered_expr4) # 54592
+nrow(ordered_expr3) # 56200
+dim(ordered_expr4)
+ordered_expr4[1:5,]
+
 # Write a small subset of the untransformed paired GTEx samples to test MaREA 
-small <- ordered_expr3[1:20,1:20]
+small <- ordered_expr4[1:20,1:20]
 small[1:5,1:5]
 write_tsv(small, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/small_untransformed_GTEx_counts.tsv")
+
+# Write the entire dataset to file
+write_tsv(ordered_expr3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/untransformed_GTEx_counts.tsv")
 
 # Transpose the expression matrix into a sample x gene format
 ordered_expr_trans <- t(ordered_expr3)
