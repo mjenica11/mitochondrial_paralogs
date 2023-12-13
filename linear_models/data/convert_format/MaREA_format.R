@@ -7,17 +7,35 @@ library(dplyr)
 library(janitor)
 
 # Read in GTEx results after blocking by batch with voom
-expr <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/batch_voom_qnorm_matrix.csv")
-expr$V1 <- NULL
+#expr <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/batch_voom_qnorm_matrix.csv")
+#expr$V1 <- NULL
+#expr[1:5,1:5]
+#tail(colnames(expr))
+
+# Read in GTEx counts
+expr <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_reads.gct", sep="\t")
 expr[1:5,1:5]
-tail(colnames(expr))
+
+# Rename the columns to be more descrptive
+colnames(expr)[1] <- "Ensembl_ID"
+colnames(expr)[2] <- "Hugo_ID"
+expr[1:5,1:5]
 
 # Use this file to determine which samples derive from which organ
 organs <- read.csv("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/organs_combat_seq.csv", sep=",")
+organs[1:5,1:5]
+
+# Drop duplicated rows
+#organs2 <- organs[!duplicated(organs$SAMPID),]
+#organs2[1:5,1:5]
+#dim(organs2) # 296 9
 
 # Drop samples from the counts df that are not from paired heart or liver
 keeps <- as.vector(organs$SAMPID)
+length(keeps) # 15984 
+dim(expr) # 56200 17384 
 expr1 <- subset(expr, select=keeps) 
+all(colnames(expr1)==keeps)==TRUE # TRUE
 
 # Are there the same number of samples in the expr df and the organs metadata df? 
 ncol(expr1)==nrow(organs) # TRUE
@@ -76,6 +94,17 @@ tail(organs_unique) # 296 2
 
 # Write design matrix with only the organ and sample ID
 #write_tsv(organs_unique, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/ordered_organs_unique.tsv")
+
+# Append the Hugo ID column back on the ordered paired expression matrix
+ordered_expr3$Hugo_ID <- expr$Hugo_ID
+# Move the Hugo_ID column to the front
+ordered_expr3 <- ordered_expr3 %>% select(Hugo_ID, everything())
+ordered_expr3[1:5,1:5]
+
+# Write a small subset of the untransformed paired GTEx samples to test MaREA 
+small <- ordered_expr3[1:20,1:20]
+small[1:5,1:5]
+write_tsv(small, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/small_untransformed_GTEx_counts.tsv")
 
 # Transpose the expression matrix into a sample x gene format
 ordered_expr_trans <- t(ordered_expr3)
