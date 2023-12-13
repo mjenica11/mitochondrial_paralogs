@@ -120,18 +120,25 @@ class(liver3)
 liver3[1:5,1:5]
 
 # Append the reaction IDs back onto the dataframe
-heart3$Reactions <- heart2$Reactions
-liver3$Reactions <- liver2$Reactions
+# Spaces in variables is bad form, but I am doing this to match the example on
+# the MaREA for galaxy server because it does not appear to recognize the reactions column
+# based on the error message its generating
+heart3$"Reaction ID" <- heart2$Reactions
+liver3$"Reaction ID" <- liver2$Reactions
 # Move "Reactions" column to the front
-heart3 <- heart3 %>% select(Reactions, everything())
+heart3 <- heart3 %>% select("Reaction ID", everything())
 heart3[1:5,1:5]
-liver3 <- liver3 %>% select(Reactions, everything())
+liver3 <- liver3 %>% select("Reaction ID", everything())
 liver3[1:5,1:5]
 dim(heart3)==dim(liver3) # TRUE TRUE
 
 # Write to file
-write.table(liver3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/liver_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
-write.table(heart3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/heart_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
+#write.table(liver3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/liver_RAS_recon22_no_header_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
+#write.table(heart3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/heart_RAS_recon22_no_header_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
+
+# Write to file
+write.table(liver3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/liver_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = TRUE, row.names = FALSE)
+write.table(heart3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/heart_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = TRUE, row.names = FALSE) 
 
 # Write a small subset to file
 small_heart <- heart3[1:10,1:10]
@@ -140,5 +147,5 @@ small_heart[1:5,1:5]
 small_liver[1:5,1:5]
 
 # Write to file
-write.table(small_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_liver_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
-write.table(small_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_heart_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = NA)
+write.table(small_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_liver_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = TRUE, row.names = FALSE) 
+write.table(small_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_heart_RAS_recon22_complete_cases_only.tsv", quote=FALSE, sep='\t', col.names = TRUE, row.names = FALSE)
