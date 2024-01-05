@@ -117,12 +117,12 @@ dim(ordered_expr4)
 ordered_expr4[1:5,]
 
 # Write a small subset of the untransformed paired GTEx samples to test MaREA 
-small <- ordered_expr4[1:20,1:20]
-small[1:5,1:5]
-write_tsv(small, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/small_untransformed_GTEx_counts.tsv")
+#small <- ordered_expr4[1:20,1:20]
+#small[1:5,1:5]
+#write_tsv(small, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/small_untransformed_GTEx_counts.tsv")
 
 # Write the entire dataset to file
-write_tsv(ordered_expr3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/untransformed_GTEx_counts.tsv")
+#write_tsv(ordered_expr3, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/convert_format/untransformed_GTEx_counts.tsv")
 
 # Transpose the expression matrix into a sample x gene format
 ordered_expr_trans <- t(ordered_expr3)
@@ -137,14 +137,20 @@ ordered_expr_trans[1:3,]
 head(rownames(ordered_expr_trans)) 
 head(colnames(ordered_expr_trans)) 
 dim(organs_unique) # 296 2 
-head(organs_unique) # 296 2 
+head(organs_unique)  
+head(colnames(organs_unique))  
 organs_unique[1:5,]  
 # Make the rownames into a column
 SAMPID <- rownames(ordered_expr_trans)
 rownames(ordered_expr_trans) <- NULL
 ordered_expr_trans <- cbind(SAMPID, ordered_expr_trans)
 head(ordered_expr_trans[1]) 
-head(ordered_expr_trans) 
+ordered_expr_trans[1:5,1:5]
+# Delete the Hugo_ID row so the rows are the same length in the
+# ordered_expr_trans and organs_unique dataframes so it can be concatenated withcbind()
+ordered_expr_trans <- ordered_expr_trans[-c(1),]
+head(colnames(ordered_expr_trans)) 
+dim(ordered_expr_trans) # 296 56201
 # Combine the sample x gene matrix with the metadata by
 combind <- cbind(ordered_expr_trans, organs_unique, by=c("SAMPID"))
 combind[1:5,1:5]
@@ -154,9 +160,9 @@ tail(combind$organ)
 
 # Add the HUGO gene names as column names
 expr[1:5,1:5]
-names <- expr$hugo_names
-length(colnames(combind)) # 51263
-length(names) # 51259 ; why are there 4 extra genes in the transposed expression matrix?
+names <- expr$Hugo_ID
+length(colnames(combind)) # 56204 
+length(names) # 56200 ; why are there 4 extra genes in the transposed expression matrix?
 ####### there are 2 SAMPID column, organ col, and a "by" column...
 combind[1] <- NULL
 head(combind$by)
@@ -232,6 +238,6 @@ rownames(t_liver) <- NULL
 t_liver[1:5,1:5]
 
 # Write to file
-write_tsv(t_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/heart_df.tsv")
-write_tsv(t_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/liver_df.tsv")
+write_tsv(t_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_quantile_voom_heart_df.tsv")
+write_tsv(t_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_quantile_voom_liver_df.tsv")
 
