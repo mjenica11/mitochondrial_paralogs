@@ -237,7 +237,18 @@ t_liver <- t_liver %>% select(hugo_id, everything())
 rownames(t_liver) <- NULL
 t_liver[1:5,1:5]
 
+# Change the sample names to preserve anonymity before sharing
+heart_pseudonames <- sprintf("sample_%s",seq(2:ncol(t_heart)))
+head(heart_pseudonames)
+colnames(t_heart)[2:ncol(t_heart)] <- heart_pseudonames
+t_heart[1:5,1:5]
+
+liver_pseudonames <- sprintf("sample_%s",seq(2:ncol(t_liver)))
+head(liver_pseudonames)
+colnames(t_liver)[2:ncol(t_liver)] <- liver_pseudonames
+t_liver[1:5,1:5]
+
 # Write to file
-write_tsv(t_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_quantile_voom_heart_df.tsv")
-write_tsv(t_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_quantile_voom_liver_df.tsv")
+write_tsv(t_heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/pseudonames_GTEx_quantile_voom_heart_df.tsv")
+write_tsv(t_liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/pseudonames_GTEx_quantile_voom_liver_df.tsv")
 
