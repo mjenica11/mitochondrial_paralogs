@@ -80,4 +80,5 @@ dim(combined) # 61358 2001
 combined[1:5,1:5]
 
 # Write to file
-write.csv(combined, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/combined_simulated_batch1_batch2_error2.csv")
+write.csv(combined, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/combined_simulated_002_batch1_batch2_error2.csv")
+
