@@ -13,11 +13,13 @@ library(edgeR)
 library(ggpubr)
 library(rstatix)
 library(ggsignif)
+library(ggtext)
 
 # Read in quantile normalized counts
 #counts <- fread("/scratch/mjpete11/linear_models/data/simulated_data_salmon_count_matrix_20_samples.tsv", sep="/") # float
-counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_001_batch1_batch2.csv") # integer
+counts <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/simulated_filtered_counts.csv") # integer
 counts[1:5,1:5]
+dim(counts) #53 2003
 
 # Drop the index column
 counts$V1 <- NULL
@@ -75,52 +77,61 @@ SLC25 <- c("ENSG00000100075", "ENSG00000120329", "ENSG00000075415",
 # Convert to df instead of df + datatable
 class(counts)
 counts <- as.data.frame(counts) 
+counts[1:5,1:5]
 
 # Drop the version number (decimals) after the ensembl_ID
-counts$ensembl_ID <- as.character(counts$ensembl_ID) # Convert from factor to character 
-class(counts$ensembl_ID) # character
-vec <- gsub("\\.\\d+", "", counts$ensembl_ID) # write this to file because it takes forever to run
-head(vec)
-#write.csv(vec, "/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
-#vec <- read.csv("/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
-counts$ensembl_ID_no_version <- vec
-counts[1:5,1:5]
-
-# Move last column first
-counts <- counts %>% select(ensembl_ID_no_version, everything())
-counts[1:5,1:5]
+#counts$ensembl_ID <- as.character(counts$ensembl_ID) # Convert from factor to character 
+#class(counts$ensembl_ID) # character
+#vec <- gsub("\\.\\d+", "", counts$ensembl_ID) # write this to file because it takes forever to run
+#head(vec)
+##write.csv(vec, "/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
+##vec <- read.csv("/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
+#counts$ensembl_ID_no_version <- vec
+#counts[1:5,1:5]
+#
+## Move last column first
+#counts <- counts %>% select(ensembl_ID_no_version, everything())
+#counts[1:5,1:5]
 
 # Subset just 148 samples from each batch to match the GTEx analysis
 test <- counts[,1:148+2]
 test1 <- counts[,1003:1150]
+head(colnames(test))
 tail(colnames(test))
+head(colnames(test1))
 tail(colnames(test1))
-test$ensembl_ID_no_version <- vec
-test1$ensembl_ID_no_version <- vec
-counts_subset <- merge(test, test1, by=c("ensembl_ID_no_version"))
+#test$ensembl_ID_no_version <- vec
+#test1$ensembl_ID_no_version <- vec
+test$ensembl_ID <- SLC25 
+test1$ensembl_ID <- SLC25
+#counts_subset <- merge(test, test1, by=c("ensembl_ID_no_version"))
+counts_subset <- merge(test, test1, by=c("ensembl_ID"))
 counts_subset[1:5,1:5]
 
 # Subset the SLC25 genes
-sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
+#sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
 
 # Is every gene present? 
-setdiff(SLC25, sub_df$'ensembl_ID_no_version') # Victory!
+#setdiff(SLC25, counts$'ensembl_ID_no_version') # Victory!
+setdiff(SLC25, counts_subset$'ensembl_ID') # Victory!
 
 # Number of genes remaining
-nrow(sub_df) # 53 
+nrow(counts_subset) # 53 
 
 # Reshape from long to wide format
 # Add gene ID column
-sub_df$hugo_ID <- SLC
-sub_df <- sub_df %>% select(hugo_ID, everything())
-sub_df$ensembl_ID <- NULL
-sub_df[1:5,1:5]
+counts_subset$hugo_ID <- SLC
+counts_subset <- counts_subset %>% select(hugo_ID, everything())
+#counts_subset$ensembl_ID <- NULL
+counts_subset[1:5,1:5]
 
 # Reshape from wide to long format so the dataframe is compartable with the 
 # plotting function
 # Reshape dataframe so it can be converted to a design matrix object
-plotting_df <- sub_df %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID_no_version"))
+#plotting_df <- counts_subset %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID_no_version"))
+plotting_df <- counts_subset %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID"))
 head(plotting_df)
+tail(plotting_df)
 dim(plotting_df) # 106000 4
 
 # Rename column labeling the batch
@@ -137,27 +148,35 @@ tail(plotting_df)
 # Add a column with the log2(CPM) transformed values
 plotting_df$log2_cpm <- cpm(plotting_df$value)
 head(plotting_df)
+dim(plotting_df) # 15688 6
+
+# Add a column with the gene:sample:batch value
+#plotting_df$gene_batch_sample <- with(plotting_df, paste0(hugo_ID, sample), sep = '_')
+#head(plotting_df)
+
+# Drop duplicate rows; should be 53 * 148 * 2 = 15688 unique rows...
+#plotting_df_unique <- plotting_df[!duplicated(plotting_df$gene_batch_sample),] 
+#dim(plotting_df_unique) # 106000 4
 
 # Remove samples >6 standard deviations away
-median(plotting_df$log2_cpm) # 54.00
-mean(plotting_df$log2_cpm) # 64.18
-sd(plotting_df$log2_cpm) # 33.29
-sd(plotting_df$log2_cpm) * 6 # +/- 199.73 
-above <- 3.43 + 20.6 # 24.03
-below <- 3.43 - 20.6 # -17.17
-above;below
+median(plotting_df$log2_cpm) # 53.65 
+mean(plotting_df$log2_cpm) # 63.74
+sd(plotting_df$log2_cpm) # 33.06 
+sd(plotting_df$log2_cpm) * 6 # +/- 198.34  
+above <- mean(plotting_df$log2_cpm) + sd(plotting_df$log2_cpm) * 6
+below <- mean(plotting_df$log2_cpm) - sd(plotting_df$log2_cpm) * 6
+above;below # 262.12, -134.63 
 
 # Are there any samples outside of this range?
-range(plotting_df$log2_cpm) # 0.00 to 179.60
+range(plotting_df$log2_cpm) # 0.00 to 178.40 
 
 # Number of samples outside of this range
-outlier_above <- plotting_df[plotting_df$log2_cpm > 24.03,] # 15207 sample  
-outlier_below <- plotting_df[plotting_df$log2_cpm < -17.77,] # 0 samples 
+outlier_above <- plotting_df[plotting_df$log2_cpm > above,] # 0 samples 
+outlier_below <- plotting_df[plotting_df$log2_cpm < below,] # 0 samples 
 nrow(outlier_above);nrow(outlier_below)
 
 ###### TEST PLOT #######
 # Move the p-value to the side so I don't have to set the y-limit
-
 dat <- plotting_df %>% filter(hugo_ID=="SLC25A1")
 
 rm(p)
@@ -173,7 +192,7 @@ p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
 						   paired = TRUE) +
 		scale_fill_manual(values = c("lightgreen", "purple")) +
 		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") + 
-		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 1: error_rate = 0.001")) +
+		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 1: error_rate = 0.2")) +
 		ggtitle(paste0("Violin plot of simulated SLC25A1", " expression without batch correction")) 
 		ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_no_batch_correction_violins/error_001_plots/", "SLC25A1", ".png"), device="png")
 p
@@ -195,22 +214,24 @@ violin <- function(GENE) {
 		stat_compare_means(method = "wilcox.test", 
 						   aes(label = paste("adj.p_value =", after_stat(!!str2lang("p.adj"))*53)), 
 						   label.x = 1.25, 
-						   label.y = max(dat[["log2_cpm"]]) + 5,
+						   label.y = max(dat[["log2_cpm"]]) + 1,
 						   paired = TRUE) +
 		scale_fill_manual(values = c("lightgreen", "purple")) +
 		labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") +
-		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.001")) +
+		scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.2")) +
 		ggtitle(paste0("Violin plot of simulated ", GENE, " expression without batch correction")) 
-		ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_no_batch_correction_violins/error_001_plots/", GENE, ".png"), device="png")
+		ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/linear/simulated_no_batch_correction_violins/error_2_plots/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
 ################ OLD VIOLIN PLOT #############
 # changed to a different p-val function; I don't think the originl was correct
 # Function to plot violin plots
+rm(violin); rm(plots)
 violin <- function(GENE){
 		 dat <- plotting_df %>% filter(hugo_ID==GENE)
-         p_val <- wilcox.test(formula=log2_cpm~batch, data=dat, paired=TRUE, exact=TRUE)$p.value
+         #p_val <- wilcox.test(formula=log2_cpm~batch, data=dat, paired=TRUE, exact=TRUE)$p.value
+         p_val <- t.test(formula=log2_cpm~batch, data=dat, paired=TRUE, exact=TRUE)$p.value
 	     n_tests <- 53
 	     corrected_pval <- p.adjust(p_val, method="bonferroni", n=n_tests)
 	     p <- ggplot(dat, aes(x = batch, y = log2_cpm, fill = batch)) +
@@ -221,9 +242,10 @@ violin <- function(GENE){
 #       		  scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
 #			   			       breaks = seq(-35, 35, by = 1)) +
 	   		  labs(x = "batch", y = "log2(CPM(prior.count=0.5))", fill = "") +
-			  annotate(geom = "text", x = 1.5, y = 200, label=paste0("adj. p value: ", corrected_pval)) +
-	   		  ggtitle(paste0("Violin plot of simulated ", GENE, " expression without batch correction")) 
-	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_no_batch_correction_violins/error_05_plots/", GENE, ".png"), device="png")
+			  annotate(geom = "text", x = 1.5, y = max(dat$log2_cpm)+3, label=paste0("adj. p value: ", corrected_pval)) +
+	   		  ggtitle(paste0("Violin plot of simulated ", GENE, " expression without batch correction")) +
+              theme(plot.title=element_textbox_simple()) 
+	   		  ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/linear/simulated_no_batch_correction_violins/error_2_plots/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
