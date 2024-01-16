@@ -17,7 +17,8 @@ library(fastDummies)
 library(edgeR)
 
 # Read in counts
-counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_5_batch1_batch2.csv") # integer
+#counts <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/combined_simulated_batch1_batch2_error2.csv") # integer
+counts <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/simulated_filtered_counts.csv") # integer
 counts[1:5,1:5]
 
 # Drop the index column
@@ -78,54 +79,83 @@ class(counts)
 counts <- as.data.frame(counts) 
 
 # Drop the version number (decimals) after the ensembl_ID
-counts$ensembl_ID <- as.character(counts$ensembl_ID) # Convert from factor to character 
-class(counts$ensembl_ID) # character
-vec <- gsub("\\.\\d+", "", counts$ensembl_ID) # write this to file because it takes forever to run
+#counts$ensembl_ID <- as.character(counts$ensembl_ID) # Convert from factor to character 
+#class(counts$ensembl_ID) # character
+#vec <- gsub("\\.\\d+", "", counts$ensembl_ID) # write this to file because it takes forever to run
 #write.csv(vec, "/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
 #vec <- read.csv("/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
-counts$ensembl_ID_no_version <- vec
+#counts$ensembl_ID_no_version <- vec
 counts[1:5,1:5]
 
 # Move last column first
-counts <- counts %>% select(ensembl_ID_no_version, everything())
-counts[1:5,1:5]
-dim(counts) # 61386 2002
+#counts <- counts %>% select(ensembl_ID_no_version, everything())
+#counts[1:5,1:5]
+#dim(counts) # 61386 2002
+dim(counts) # 53 2002
 
-# Subset just 148 samples from each batch to match the GTEx analysis
+########## Test rowSums() ########################################################
+# Expression filter: Keep a gene if it has >x counts in at least 1 sample 
+# Skip the first column because that is just the gene name column
+sums_expression_filter <- function(DF, thresh){
+                DAT <- DF[rowSums(DF[,2:ncol(DF)]>=thresh, na.rm=TRUE)>0, ]
+                return(DAT)
+}
+
+# Apply function
+sums_counts <- sums_expression_filter(DF=counts, thresh=5)
+dim(sums_counts) # 51259 17312 
+
+########## Test rowMeans() ########################################################
+# Expression filter: Keep a gene if it has >x counts in at least 1 sample 
+# Skip the first column because that is just the gene name column
+means_expression_filter <- function(DF, thresh){
+                DAT <- DF[rowMeans(DF[,2:ncol(DF)]>=thresh, na.rm=TRUE)>0, ]
+                return(DAT)
+}
+
+# Apply function
+means_counts <- means_expression_filter(DF=counts, thresh=5)
+dim(means_counts) # 51259 17312 
+
+#Subset just 148 samples from each batch to match the GTEx analysis
 test <- counts[,1:148+2]
 test1 <- counts[,1003:1150]
 head(colnames(test))
 head(colnames(test1))
 tail(colnames(test))
 tail(colnames(test1))
-test$ensembl_ID_no_version <- vec
-test1$ensembl_ID_no_version <- vec
-counts_subset <- merge(test, test1, by=c("ensembl_ID_no_version"))
+#test$ensembl_ID_no_version <- vec
+#test1$ensembl_ID_no_version <- vec
+test$ensembl_ID <- counts$ensembl_ID 
+test1$ensembl_ID <- counts$ensembl_ID
+#counts_subset <- merge(test, test1, by=c("ensembl_ID_no_version"))
+counts_subset <- merge(test, test1, by=c("ensembl_ID"))
 counts_subset[1:5,1:5]
 dim(counts_subset) # 61386 297
 head(colnames(counts_subset))
 tail(colnames(counts_subset))
 
 # Subset the SLC25 genes
-sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
+#sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
 
 # Is every gene present? 
-setdiff(SLC25, sub_df$'ensembl_ID_no_version') # Victory!
+#setdiff(SLC25, sub_df$'ensembl_ID_no_version') # Victory!
 
 # Number of genes remaining
-nrow(sub_df) # 53 
+#nrow(sub_df) # 53 
 
 # Reshape from long to wide format
 # Add gene ID column
-sub_df$hugo_ID <- SLC
-sub_df <- sub_df %>% select(hugo_ID, everything())
-sub_df$ensembl_ID <- NULL
-sub_df[1:5,1:5]
+counts_subset$hugo_ID <- SLC
+counts_subset <- counts_subset %>% select(hugo_ID, everything())
+#counts_subset$ensembl_ID <- NULL
+counts_subset[1:5,1:5]
 
 # Reshape from wide to long format so the dataframe is compartable with the 
 # plotting function
 # Reshape dataframe so it can be converted to a design matrix object
-plotting_df <- sub_df %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID_no_version"))
+#plotting_df <- counts_subset %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID_no_version"))
+plotting_df <- counts_subset %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID"))
 head(plotting_df)
 dim(plotting_df) # 15741 4
 
@@ -147,9 +177,9 @@ head(plotting_df)
 median(plotting_df$log2_cpm) # 54.0
 mean(plotting_df$log2_cpm) # 64.18
 sd(plotting_df$log2_cpm) # 33.34
-sd(plotting_df$log2_cpm) * 6 # +/- 200.02 
-above <- 3.43 + 20.6 # 24.03
-below <- 3.43 - 20.6 # -17.17
+sd(plotting_df$log2_cpm) * 6 # +/- 2000.02 
+above <- mean(plotting_df$log2_cpm) + sd(plotting_df$log2_cpm) * 6
+below <- mean(plotting_df$log2_cpm) - sd(plotting_df$log2_cpm) * 6
 above;below
 
 # Are there any samples outside of this range?
@@ -160,28 +190,6 @@ outlier_above <- plotting_df[plotting_df$log2_cpm > 24.03,] # 0 sample
 outlier_below <- plotting_df[plotting_df$log2_cpm < -17.77,] # 0 samples 
 nrow(outlier_below);nrow(outlier_below)
 
-# Make design matrix; want to end up with 148 paired heart and liver samples
-# to match the GTEx design
-# Subset just 148 samples from each batch to match the GTEx analysis
-counts_subset[1:5,1:5]
-counts_subset$ensembl_ID_no_version <- NULL  # Drop the ensembl_ID column before applying voom
-# since you need a numeric matrix only
-dim(counts_subset) # 61386 296
-counts_subset[1:5,1:5]
-heart_vec <- rep_len('heart', len=148)
-liver_vec <- rep_len('liver', len=148)
-length(heart_vec) # 148 
-length(liver_vec) # 148
-organ_vect <- c(heart_vec, liver_vec)
-mat <- fastDummies::dummy_cols(organ_vect)
-head(mat);tail(mat)
-class(mat) # data.frame
-mat <- data.matrix(mat)
-class(mat) # matrix
-dim(mat) # 296 3
-nrow(mat);ncol(counts_subset) # 296 296
-nrow(mat)==ncol(counts_subset) # TRUE
-
 # Make design matrix
 batch1_vec <- rep_len('batch1', len=148)
 batch2_vec <- rep_len('batch2', len=148)
@@ -191,19 +199,22 @@ batch_vect <- c(batch1_vec, batch2_vec)
 design_matrix <- as.data.frame(model.matrix(~batch_vect-1))
 # Rename columns so they are more clear
 colnames(design_matrix) <- c("batch1", "batch2")
-nrow(design_matrix)==ncol(counts_subset) # TRUE
+dim(counts_subset) # 53 297
+nrow(design_matrix)==ncol(counts_subset)-1 # TRUE
+counts_subset[1:5,1:5]
 
 # Apply limma::voom() to counts matrix to normalize and write to file
-voom_obj <- voom(counts=counts_subset, design=design_matrix, normalize.method="quantile")  
+voom_obj <- voom(counts=counts_subset[,3:ncol(counts_subset)], design=design_matrix, normalize.method="quantile")  
 head(voom_obj$E)
 
 # Store voom adjusted values
 voom_E <- as.data.frame(voom_obj$E)
-voom_E$ensembl_IDs  <- vec 
+#voom_E$ensembl_IDs  <- vec 
+voom_E$ensembl_ID  <- counts$ensembl_ID 
 voom_E[1:5,1:5]
 # Move the ensembl <- ID column to the front
 voom_E <- voom_E %>%
-		  dplyr::select(ensembl_IDs, everything())
+		  dplyr::select(ensembl_ID, everything())
 voom_E[1:5,1:5]
 dim(voom_E) # 61386 297
 class(voom_E)
@@ -212,18 +223,19 @@ print("completed voom")
 
 # Subset the gene_counts df using the ensembl_IDs; then use the corresponding
 # index to subset the voom-transformed matrix (plotting_df)
-gene_counts <- voom_E[voom_E$ensembl_IDs %in% SLC25,]
-gene_counts[1:5,1:5]
-dim(gene_counts) # 53 297
+#gene_counts <- voom_E[voom_E$ensembl_IDs %in% SLC25,]
+#gene_counts[1:5,1:5]
+#dim(gene_counts) # 53 297
 
 # Add gene ID column
-gene_counts$hugo_ID <- SLC
-gene_counts[1:5,1:5]
+#gene_counts$hugo_ID <- SLC
+voom_E$hugo_ID <- SLC
+#gene_counts[1:5,1:5]
 
 # Reshape from wide to long format so the dataframe is compartable with the 
 # plotting function
 # Reshape dataframe so it can be converted to a design matrix object
-plotting_df <- gene_counts %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_IDs"))
+plotting_df <- voom_E %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID"))
 head(plotting_df)
 dim(plotting_df) # 15688 4
 
@@ -276,11 +288,11 @@ violin <- function(GENE){
 				stat_summary(fun.data = "mean_sdl", geom="crossbar", width=0.2, alpha=0.1) +
 				scale_fill_manual(values = c("lightgreen", "purple")) +
 				geom_jitter(size = 1, alpha = 0.9) +
-				labs(x = "batch", y = "log2(CPM)", fill = "") +
-				scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.5")) +
+				labs(x = "batch", y = "log2(CPM(prior=0.5))", fill = "") +
+				scale_x_discrete(labels = c("batch 1: error_rate = 0.005", "batch 2: error_rate = 0.2")) +
 				ggtitle(paste0("Violin plot of simulated ", GENE, "\n expression after adjustment via voom()")) +
 				theme(plot.title=element_text(hjust=0.5))
-		ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_voom_batch/plots_error_5/", GENE, ".png"), device="png")
+		ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/linear/simulated_voom_batch/plots_error_2/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
