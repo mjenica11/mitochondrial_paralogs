@@ -14,7 +14,7 @@ library(edgeR)
 # Read in quantile normalized counts
 #counts <- fread("/scratch/mjpete11/linear_models/data/simulated_data_salmon_count_matrix_20_samples.tsv", sep="/") # float
 #counts <- fread("/scratch/mjpete11/linear_models/data/combined_simulated_batch1_batch2.csv") # integer
-counts <- fread("/scratch/mjpete11/linear_models/data/simulated_error_001_combat_seq.csv") # integer
+counts <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/simulated_filtered_counts.csv") # integer
 counts[1:5,1:5]
 
 # Drop the index column
@@ -75,62 +75,69 @@ class(counts)
 counts <- as.data.frame(counts) 
 
 # Drop the version number (decimals) after the ensembl_ID
-counts$ensembl_ID <- as.character(counts$ensembl_ID) # Convert from factor to character 
-class(counts$ensembl_ID) # character
-vec <- gsub("\\.\\d+", "", counts$ensembl_ID) # write this to file because it takes forever to run
-write.csv(vec, "/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
+#counts$ensembl_ID <- as.character(counts$ensembl_ID) # Convert from factor to character 
+#class(counts$ensembl_ID) # character
+#vec <- gsub("\\.\\d+", "", counts$ensembl_ID) # write this to file because it takes forever to run
+#write.csv(vec, "/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
 #vec <- read.csv("/scratch/mjpete11/linear_models/data/ensembl_IDs_no_version.csv")
-counts$ensembl_ID_no_version <- vec
+#counts$ensembl_ID_no_version <- vec
 counts[1:5,1:5]
 
 # Move last column first
-counts <- counts %>% select(ensembl_ID_no_version, everything())
-counts[1:5,1:5]
+#counts <- counts %>% select(ensembl_ID_no_version, everything())
+#counts[1:5,1:5]
 
 # Subset just 148 samples from each batch to match the GTEx analysis
-test <- counts[,3:148+2]
+test <- counts[,1:148+2]
 test1 <- counts[,1003:1150]
+head(colnames(test))
 tail(colnames(test))
+head(colnames(test1))
 tail(colnames(test1))
-test$ensembl_ID_no_version <- vec
-test1$ensembl_ID_no_version <- vec
-counts_subset <- merge(test, test1, by=c("ensembl_ID_no_version"))
+#test$ensembl_ID_no_version <- vec
+#test1$ensembl_ID_no_version <- vec
+#counts_subset <- merge(test, test1, by=c("ensembl_ID_no_version"))
+test$ensembl_ID <- counts$ensembl_ID 
+test1$ensembl_ID <- counts$ensembl_ID 
+counts_subset <- merge(test, test1, by=c("ensembl_ID"))
 counts_subset[1:5,1:5]
+tail(colnames(counts_subset))
 
 # Subset the SLC25 genes
-sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
+#sub_df <- counts_subset[counts_subset$"ensembl_ID_no_version" %in% SLC25, ]
 
 # Is every gene present? 
-setdiff(SLC25, sub_df$'ensembl_ID_no_version') # Victory!
+#setdiff(SLC25, sub_df$'ensembl_ID_no_version') # Victory!
 # In batch #2 error rate = 0.001, ENSG00000164933 (SLC25A32) was filtered out
 
 # Number of genes remaining
-nrow(sub_df) # 53 
+#nrow(sub_df) # 53 
 
 # Hugo-IDs without SLC25A32
-rm(SLC)
-SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
-		 "UCP1", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
-		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
-		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
-		 "SLC25A23", "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
-		 "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A31",  
-		 "SLC25A33", "SLC25A34", "SLC25A35", "SLC25A36", "SLC25A37", 
-		 "SLC25A38", "SLC25A39", "SLC25A40", "SLC25A41", "SLC25A42", 
-		 "SLC25A43", "SLC25A44", "SLC25A45", "SLC25A46", "SLC25A47",
-		 "SLC25A48", "MTCH1", "MTCH2", "SLC25A51", "SLC25A52", "SLC25A53")
+#rm(SLC)
+#SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
+#		 "UCP1", "UCP2", "UCP3", "SLC25A10", "SLC25A11", "SLC25A12", 
+#		 "SLC25A13", "SLC25A14", "SLC25A15", "SLC25A16", "SLC25A17", 
+#		 "SLC25A18", "SLC25A19", "SLC25A20", "SLC25A21", "SLC25A22", 
+#		 "SLC25A23", "SLC25A24", "SLC25A25", "SLC25A26", "SLC25A27", 
+#		 "SLC25A28", "SLC25A29", "SLC25A30", "SLC25A31",  
+#		 "SLC25A33", "SLC25A34", "SLC25A35", "SLC25A36", "SLC25A37", 
+#		 "SLC25A38", "SLC25A39", "SLC25A40", "SLC25A41", "SLC25A42", 
+#		 "SLC25A43", "SLC25A44", "SLC25A45", "SLC25A46", "SLC25A47",
+#		 "SLC25A48", "MTCH1", "MTCH2", "SLC25A51", "SLC25A52", "SLC25A53")
 
 # Reshape from long to wide format
 # Add gene ID column
-sub_df$hugo_ID <- SLC
-sub_df <- sub_df %>% select(hugo_ID, everything())
-sub_df$ensembl_ID <- NULL
-sub_df[1:5,1:5]
+counts_subset$hugo_ID <- SLC
+counts_subset <- counts_subset %>% select(hugo_ID, everything())
+#counts_subset$ensembl_ID <- NULL
+counts_subset[1:5,1:5]
 
 # Reshape from wide to long format so the dataframe is compartable with the 
 # plotting function
 # Reshape dataframe so it can be converted to a design matrix object
-plotting_df <- sub_df %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID_no_version"))
+#plotting_df <- counts_subset %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID_no_version"))
+plotting_df <- counts_subset %>% reshape2::melt(id.vars=c("hugo_ID","ensembl_ID"))
 head(plotting_df)
 dim(plotting_df) # 106000 4
 
@@ -143,6 +150,7 @@ batch2 <- rep_len('batch2', len=nrow(plotting_df)/2)
 plotting_df$batch <- c(batch1, batch2)
 head(plotting_df)
 tail(plotting_df)
+dim(plotting_df)
 
 # Add a column with the log2(CPM) transformed values
 plotting_df$log2_cpm <- cpm(plotting_df$value)
@@ -153,8 +161,8 @@ median(plotting_df$log2_cpm) # 7.93
 mean(plotting_df$log2_cpm) # 9.43
 sd(plotting_df$log2_cpm) # 4.88
 sd(plotting_df$log2_cpm) * 6 # +/- 29.3 
-above <- 3.43 + 20.6 # 24.03
-below <- 3.43 - 20.6 # -17.17
+above <- mean(plotting_df$log2_cpm) + sd(plotting_df$log2_cpm) * 6
+below <- mean(plotting_df$log2_cpm) - sd(plotting_df$log2_cpm) * 6
 above;below
 
 # Are there any samples outside of this range?
@@ -183,10 +191,9 @@ violin <- function(GENE){
 #       		  scale_y_continuous(limits = c(-35, 35), expand = c(0,0),
 #			   			       breaks = seq(-35, 35, by = 1)) +
 	   		  labs(x = "organ", y = "log2(CPM(prior.count=0.5))", fill = "") +
-			  annotate(geom = "text", x = 1.5, y = 200, label=paste0("adj. p value: ", corrected_pval)) +
-	   		  #ggtitle(paste0("Violin plot of simulated ", GENE, " expression without batch correction")) 
+			  annotate(geom = "text", x = 1.5, y = max(dat$log2_cpm)+1, label=paste0("adj. p value: ", corrected_pval)) +
 	   		  ggtitle(paste0("Violin plot of combat-seq adjusted simulated ", GENE, " expression")) 
-	   		  ggsave(paste0("/scratch/mjpete11/linear_models/linear/simulated_2SRI/simulated_combat_seq_violins/error_001_plots/", GENE, ".png"), device="png")
+	   		  ggsave(paste0("/scratch/mjpete11/mitochondrial_paralogs/linear_models/linear/simulated_2SRI/simulated_combat_seq_violins/error_2_plots/", GENE, ".png"), device="png")
 }
 plots <- Map(violin, GENE=SLC)
 
