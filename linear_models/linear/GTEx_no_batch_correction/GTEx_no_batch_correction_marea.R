@@ -38,7 +38,21 @@ liver2 <- liver2 %>% select(Hugo_ID, everything())
 heart2[1:5,1:5]
 liver2[1:5,1:5]
 
+# Write a small subset to file
+heart3 <- heart2[1:20,1:20]
+liver3 <- liver2[1:20,1:20]
+heart3[1:5,1:5]
+liver3[1:5,1:5]
+
+# Change the sample names for sharing
+colnames(heart3)[2:ncol(heart3)] <- paste0("sample_", 1:19) 
+colnames(liver3)[2:ncol(liver3)] <- paste0("sample_", 1:19) 
+
 # Write dataframes to file
-write.table(heart2, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_heart_filtered_counts.csv",sep=",",row.names=FALSE)
-write.table(liver2, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_liver_filtered_counts.csv",sep=",",row.names=FALSE)
+write.table(heart3, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_GTEx_heart_filtered_counts.tsv", quote=FALSE, sep="\t",row.names=FALSE)
+write.table(liver3, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_GTEx_liver_filtered_counts.tsv", quote=FALSE, sep="\t",row.names=FALSE)
+
+# Write dataframes to file
+write.table(heart2, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_heart_filtered_counts.tsv", quote=FALSE, sep="\t",row.names=FALSE)
+write.table(liver2, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_liver_filtered_counts.tsv", quote=FALSE, sep="\t",row.names=FALSE)
 
