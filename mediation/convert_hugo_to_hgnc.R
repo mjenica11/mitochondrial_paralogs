@@ -95,29 +95,53 @@ head(subset_hgnc_df$symbol)
 head(subset_hgnc_df$hgnc_id)
 hugoID_subset_heart <- left_join(heart_subset_df, subset_hgnc_df[,c("hgnc_id", "symbol")], by="symbol")
 ncol(hugoID_subset_heart)==ncol(heart_subset_df)+1 # TRUE
+
+hugoID_subset_liver <- left_join(liver_subset_df, subset_hgnc_df[,c("hgnc_id", "symbol")], by="symbol")
+ncol(hugoID_subset_liver)==ncol(liver_subset_df)+1 # TRUE
+
 # Move the hugoID column to the front
 tail(colnames(hugoID_subset_heart))
 hugoID_subset_heart <- hugoID_subset_heart %>% select(hgnc_id, everything())
 hugoID_subset_heart[1:5,1:5]
 
+tail(colnames(hugoID_subset_liver))
+hugoID_subset_liver <- hugoID_subset_liver %>% select(hgnc_id, everything())
+hugoID_subset_liver[1:5,1:5]
+
 # Check that the order of the HGNC names match the order of the HGNC name vector
 # The order needs to match or else you will append the wrong HGNC name/ID to the wrong entry!
 subset_hgnc_df$name==hgnc_name_subset # Mostly FALSE
-
-# Reorder the hgnc dataframe rows to be in the same order as the hgnc_name_subset vector
-reordered_subset_df <- subset_hgnc_df %>% slice(order(factor(name, levels=hgnc_name_subset)))
-head(reordered_subset_df$name)
-all(reordered_subset_df$name==hgnc_name_subset) # TRUE
-
-# Append the reordered HGNC dataframe to the heart and liver count dataframes
-reordered_subset_df[1:5,]
-reordered_subset_df$name
-reordered_subset_df$hgnc_id
 hgnc_name_subset
-heart$HGNC_ID <- reordered_subset_df$hgnc_id
-liver$HGNC_ID <- reordered_subset_df$hgnc_id
-heart[1:5,1:5]
-liver[1:5,1:5]
+class(hgnc_name_subset) # character
 
-# Move the HGNC ID column to the front of each dataframe
-heart %>% relocate(HGNC_ID)
+# Reorder the heart and liver GTEX count dataframe rows to be in the same order as the hgnc_name_subset vector
+#hugoID_subset_heart <- hugoID_subset_heart %>% slice(order(factor(symbol, levels=hgnc_name_subset)))
+ordered_hugoID_subset_heart <- hugoID_subset_heart[match(hgnc_name_subset, hugoID_subset_heart$symbol),]
+hugoID_subset_heart[1:5,1:5]
+ordered_hugoID_subset_heart[1:5,1:5]
+all(ordered_hugoID_subset_heart$name==hgnc_name_subset) # TRUE
+
+ordered_hugoID_subset_liver <- hugoID_subset_liver[match(hgnc_name_subset, hugoID_subset_liver$symbol),]
+hugoID_subset_liver[1:5,1:5]
+ordered_hugoID_subset_liver[1:5,1:5]
+all(ordered_hugoID_subset_liver$name==hgnc_name_subset) # TRUE
+
+# Delete the symbol column and check if the dimensions are as expected 
+ordered_hugoID_subset_liver$symbol <- NULL
+ordered_hugoID_subset_heart$symbol <- NULL
+ordered_hugoID_subset_liver[1:5,1:5]
+ordered_hugoID_subset_heart[1:5,1:5]
+tail(colnames(ordered_hugoID_subset_heart))
+tail(colnames(ordered_hugoID_subset_liver))
+
+# Make a small dataframe so I can test the function to write to file
+small_heart <- ordered_hugoID_subset_liver[1:20,1:20]
+small_liver <- ordered_hugoID_subset_heart[1:20,1:20]
+
+# Write to file
+write.table(small_heart, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_MaREA_GTEx_heart_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
+write.table(small_liver , file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_MaREA_GTEx_liver_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
+
+# Write to file
+write.table(ordered_hugoID_subset_heart, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/MaREA_GTEx_heart_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
+write.table(ordered_hugoID_subset_liver, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/MaREA_GTEx_liver_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
