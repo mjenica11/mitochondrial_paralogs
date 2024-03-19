@@ -134,9 +134,15 @@ ordered_hugoID_subset_heart[1:5,1:5]
 tail(colnames(ordered_hugoID_subset_heart))
 tail(colnames(ordered_hugoID_subset_liver))
 
+# Rename the gene ID column to Hugo_ID to match the MaREA manual exactly
+colnames(ordered_hugoID_subset_liver)[1] <- "Hugo_ID"
+colnames(ordered_hugoID_subset_heart)[1] <- "Hugo_ID"
+
 # Make a small dataframe so I can test the function to write to file
 small_heart <- ordered_hugoID_subset_liver[1:20,1:20]
 small_liver <- ordered_hugoID_subset_heart[1:20,1:20]
+small_heart[1:5,1:5]
+small_liver[1:5,1:5]
 
 # Write to file
 write.table(small_heart, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_MaREA_GTEx_heart_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
