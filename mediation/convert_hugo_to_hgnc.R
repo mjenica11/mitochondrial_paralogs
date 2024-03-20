@@ -4,6 +4,7 @@
 library(data.table)
 library(hgnc)
 library(dplyr)
+library(edgeR)
 
 # Read in the small heart and liver count data
 heart <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/GTEx_heart_filtered_counts.tsv", sep="\t")
@@ -138,9 +139,52 @@ tail(colnames(ordered_hugoID_subset_liver))
 colnames(ordered_hugoID_subset_liver)[1] <- "Hugo_ID"
 colnames(ordered_hugoID_subset_heart)[1] <- "Hugo_ID"
 
+# CPM normalize the data
+# Convert df to DGEList object
+dge_liver <- DGEList(counts=ordered_hugoID_subset_liver)
+dge_heart <- DGEList(counts=ordered_hugoID_subset_heart)
+
+# Calculate the norm factors
+dge_liver <- calcNormFactors(dge_liver)
+dge_heart <- calcNormFactors(dge_heart)
+
+# Get normalized counts
+normalized_counts_liver <- cpm(dge_liver)
+normalized_counts_heart <- cpm(dge_heart)
+normalized_counts_heart[1:5,1:5]
+normalized_counts_liver[1:5,1:5]
+
+# Convert DGEList object to a dataframe
+class(normalized_counts_heart) # matrix array
+class(normalized_counts_liver)
+
+normalized_counts_heart <- as.data.frame(normalized_counts_heart)
+normalized_counts_liver <- as.data.frame(normalized_counts_liver)
+
+class(normalized_counts_heart) # data.frame
+class(normalized_counts_liver)
+
+# Append the gene ID column back on
+normalized_counts_liver$Hugo_ID <- hugoID_subset_liver$hgnc_id
+normalized_counts_heart$Hugo_ID <- hugoID_subset_heart$hgnc_id
+
+normalized_counts_heart[1:5,1:5]
+normalized_counts_liver[1:5,1:5]
+
+# Move the HUGO ID column to the front
+tail(colnames(hugoID_subset_heart))
+normalized_counts_heart <- normalized_counts_heart %>% select(Hugo_ID, everything())
+normalized_counts_heart[1:5,1:5]
+tail(colnames(normalized_counts_liver))
+
+tail(colnames(normalized_counts_liver))
+normalized_counts_liver <- normalized_counts_liver %>% select(Hugo_ID, everything())
+normalized_counts_liver[1:5,1:5]
+tail(colnames(normalized_counts_liver))
+
 # Make a small dataframe so I can test the function to write to file
-small_heart <- ordered_hugoID_subset_liver[1:20,1:20]
-small_liver <- ordered_hugoID_subset_heart[1:20,1:20]
+small_heart <- normalized_counts_liver[1:20,1:20]
+small_liver <- normalized_counts_heart[1:20,1:20]
 small_heart[1:5,1:5]
 small_liver[1:5,1:5]
 
@@ -149,5 +193,5 @@ write.table(small_heart, file="/scratch/mjpete11/mitochondrial_paralogs/linear_m
 write.table(small_liver , file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_MaREA_GTEx_liver_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
 
 # Write to file
-write.table(ordered_hugoID_subset_heart, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/MaREA_GTEx_heart_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
-write.table(ordered_hugoID_subset_liver, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/MaREA_GTEx_liver_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
+write.table(normalized_counts_heart, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/MaREA_GTEx_heart_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
+write.table(normalized_counts_liver, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/MaREA_GTEx_liver_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
