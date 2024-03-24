@@ -175,23 +175,72 @@ normalized_counts_liver[1:5,1:5]
 tail(colnames(hugoID_subset_heart))
 normalized_counts_heart <- normalized_counts_heart %>% select(Hugo_ID, everything())
 normalized_counts_heart[1:5,1:5]
+dim(normalized_counts_heart) # 31567 432
 tail(colnames(normalized_counts_liver))
 
 tail(colnames(normalized_counts_liver))
 normalized_counts_liver <- normalized_counts_liver %>% select(Hugo_ID, everything())
 normalized_counts_liver[1:5,1:5]
+dim(normalized_counts_liver) # 31567 227
 tail(colnames(normalized_counts_liver))
 
+# Read in the metadata for the paired heart and liver samples
+organs <- read.csv("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/organs.csv", sep=",")
+organs[1:5,1:5]
+
+# Create a list of the GTEx heart and liver samples
+heart_samples <- organs$SAMPID[organs$organ %like% "heart"] 
+head(heart_samples)
+heart_samples <- unique(heart_samples)
+head(heart_samples)
+
+liver_samples <- organs$SAMPID[organs$organ %like% "liver"] 
+head(liver_samples)
+liver_samples <- unique(liver_samples)
+head(liver_samples)
+
+# Drop the rows from the GTEx dataframe that are not present in the HUGO database
+# I have to drop them because there will be no HUGO ID and then I can't use it with MaREA
+# First, rename the HUGO gene name column to 'symbol' so I can inner_join() with a matching column name
+normalized_counts_heart_paired <- normalized_counts_heart[,heart_samples]
+normalized_counts_heart_paired[1:5,1:5]
+dim(normalized_counts_heart_paired) # 31567 148 
+
+normalized_counts_liver_paired <- normalized_counts_liver[,liver_samples]
+normalized_counts_liver_paired[1:5,1:5]
+dim(normalized_counts_liver_paired) # 31567 148 
+
+# Add the HUGO ID column to the normalized filtered count df
+normalized_counts_heart_paired$Hugo_ID <- hugoID_subset_heart$hgnc_id
+normalized_counts_liver_paired$Hugo_ID <- hugoID_subset_liver$hgnc_id
+normalized_counts_heart_paired$Hugo_ID
+normalized_counts_liver_paired$Hugo_ID
+
+# Move the hugoID column to the front
+tail(colnames(normalized_counts_heart_paired))
+normalized_counts_heart_paired <- normalized_counts_heart_paired %>% select(Hugo_ID, everything())
+normalized_counts_heart_paired[1:5,1:5]
+
+tail(colnames(normalized_counts_liver_paired))
+normalized_counts_liver_paired <- normalized_counts_liver_paired %>% select(Hugo_ID, everything())
+normalized_counts_liver_paired[1:5,1:5]
+
 # Make a small dataframe so I can test the function to write to file
-small_heart <- normalized_counts_liver[1:20,1:20]
-small_liver <- normalized_counts_heart[1:20,1:20]
+small_heart <- normalized_counts_heart_paired[1:20,1:20]
+small_liver <- normalized_counts_liver_paired[1:20,1:20]
 small_heart[1:5,1:5]
 small_liver[1:5,1:5]
 
+# Visually check the order of the sample IDs is correct; the ID after the "GTEx-" string should match
+colnames(small_heart)
+colnames(small_liver)
+
+# Write organs df to file
+#write.table(organs, "/scratch/mjpete11/linear <- models/data/organs.csv", sep=",")
 # Write to file
 write.table(small_heart, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_MaREA_GTEx_heart_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
 write.table(small_liver , file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/small_MaREA_GTEx_liver_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
 
 # Write to file
-write.table(normalized_counts_heart, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/MaREA_GTEx_heart_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
-write.table(normalized_counts_liver, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/MaREA_GTEx_liver_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
+write.table(normalized_counts_heart_paired, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/MaREA_GTEx_heart_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
+write.table(normalized_counts_liver_paired, file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/MaREA_GTEx_liver_filtered_counts.tsv", sep="\t", quote=FALSE, row.names=FALSE)
