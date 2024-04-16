@@ -5,16 +5,71 @@ library(dplyr)
 library(stringr)
 library(tidyr)
 library(stringr)
+library(purrr)
 
 # Read in the heart and liver pathologist activiry scores
 activity <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/Merge_Heart_Liver_pathway_activity.txt", header=TRUE, sep="\t") # float
 dim(activity) # 1324 297 
 activity[1:5,1:5]
 
-# test returning the column with the pathway names after filtering
-test <- rowMeans(activity[,2:ncol(activity)] > 0.9)
-test
+# Make sure the object is the right class
+class(activity) # data.table data.frame
+activity <- as.data.frame(activity)
+class(activity) #  data.frame
 
+# Rename the first column to remove spaces
+colnames(activity)[1] <- 'Pathway_Name'
+
+# Store the pathway names to its own object
+pathway_names <- as.data.frame(activity$'Pathway_Name')
+class(pathway_names) # data.frame 
+
+# Make sure the columns are the correct class
+head(apply(activity, 2, class)) # character
+act  <- activity[,2:ncol(activity)] %>% mutate_if(is.character, is.numeric)
+head(apply(act, 2, class)) # character
+head(act)
+
+# Re-append the pathway names column
+act1<- cbind(act, pathway_names)
+head(act1)
+
+# Re-name the pathway names column
+dim(act1) # 1324 297
+colnames(act1)[297] <- c('pathway_name')
+tail(act1)
+
+# Move the last column to the front
+act2 <- act1 %>% dplyr::select(pathway_name, everything())
+act2[1:5,1:5]
+dim(act2)==dim(activity) # TRUE TRUE
+dim(act2) # 1324 297
+
+# Subset pathway names with at least 50% variability in 90% of the samples
+df1 <- act2 %>% 
+    as_tibble() %>% 
+    slice(1:ncol(act2)) %>% 
+    filter(any(c_across(starts_with("GTEX")) >= 0.5))
+
+head(df1)
+df1[1:5,1:5]
+dim(df1) # 297 297
+class(df1)
+
+# Don't keep rows with NA values across
+library(purrr)
+df2 <- df1 %>% filter(if_any(everything(), purrr::negate(is.na))) 
+
+df2 <- df1[complete.cases(df1),]
+df2[1:15,1:5]
+
+# Write to file
+write.table(df2, 
+            file="/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/filtered_activity_scores_50percent.csv", 
+            sep=",", 
+            row.names=FALSE)
+
+################################### Exploratory analysis #########################################################
 # Function to filter the dataframe for genes with a certain probability scores in a certain proportion of samples
 filter_data <- function(DATA, PROPORTION, PROBABILITY){
 
@@ -56,6 +111,15 @@ nrow(filtered_data) # nrow=9
 filtered_data <- filter_data(DATA=activity, PROPORTION=0.9, PROBABILITY=0.3)
 head(filtered_data)
 nrow(filtered_data) # nrow= 20
+
+# Try a different filtering approach so I can keep the first column
+df1 <- activity %>%
+    filter(!is.na(.[[1]])) %>% # Keep rows with a value in the first column
+    select(-1) %>% # Select all cols except the first
+    filter(rowMeans(. >= 0.1) >= 0.5) # Filter on remaining cols
+head(df1)
+class(df1)
+################################### Exploratory analysis #########################################################
 
 # Read in the qnorm + voom normalized heart and liver counts
 counts <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/batch_voom_qnorm_matrix.csv", sep=",")
