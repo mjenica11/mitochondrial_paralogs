@@ -22,30 +22,49 @@ activity <- t(activity)
 # Move the first row to the column name
 act <- activity %>% row_to_names(row_number=1)
 act[1:5,1:5]
+tail(act)
 class(act) # matrix array
-
-# Convert the matrix to a dataframe
 act <- as.data.frame(act)
-class(act) # data.frame 
+class(act) # data.frame
+lapply(act, class)
+dat <- mutate_all(act, function(x) as.numeric(x))
+all(lapply(dat, class)=="numeric") # TRUE
+head(dat)
+tail(dat)
+class(dat)
+dim(dat) # 296 292
+any(as.logical((sapply(dat, is.na))))==TRUE # FALSE 
 
 # Change the rownames to be the first column
-act$SAMPID <- rownames(act)
+dat$SAMPID <- rownames(dat)
 
 # Move the last column to the first
-act <- act %>% select(SAMPID, everything())
+dat <- dat %>% select(SAMPID, everything())
+dat[1:5,1:5]
 
 # Drop the rownames column
-rownames(act) <- NULL
+rownames(dat) <- NULL
+dat[1:5,1:5]
 
-# Add the activity score per sample to the organs df by merging the dataframes
-act1 <- merge(act, organs, by="SAMPID")
-act1[1:5,1:5]
+# Add the dativity score per sample to the organs df by merging the dataframes
+dat1 <- merge(dat, organs, by="SAMPID")
+dat1[1:5,1:5]
+tail(dat1)
+dim(dat1) # 4191656 
+dim(dat) #296 292
+dim(organs) # 4191656 7
+
+# Drop the duplicate rows
+any(duplicated(dat1)) # TRUE
+dat2 <- dat1[!duplicated(dat1),]
+any(duplicated(dat2)) # FALSE 
+dim(dat2) # 35224 298
 
 # Mediation analysis
 # Every pathway ~ every gene + rna integrity number + total ischemic time
 
 # Step 1: Estimate the total effect
-
+act1$
 
 # Step 2: Path A (X on M)
 
