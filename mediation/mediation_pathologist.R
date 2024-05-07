@@ -3,9 +3,11 @@
 # Library
 library(data.table)
 library(janitor)
-library(dplyr)
+library(tidyverse)
+#library(dplyr)
 library(stringr)
 library(mediation)
+library(purrr)
 
 # Read in the pathways and activity scores at 50% activity
 activity <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/filtered_activity_scores_50percent.csv",sep=",")
@@ -125,7 +127,9 @@ head(slc25A1_counts)
 
 # Test that I can subset just the biomarkers from the merged dataframe
 head(subset(horizontal_df, !grepl('SLC25', x=horizontal_df$gene, ignore.case=TRUE))$gene)
-head(subset(horizontal_df, !grepl('SLC25', x=horizontal_df$gene, ignore.case=TRUE))$count)
+head(subset(horizontal_df, !grepl('SLC25', x=horizontal_df$gene, ignore.case=TRUE))$counts)
+class(subset(horizontal_df, !grepl('SLC25', x=horizontal_df$gene, ignore.case=TRUE))$counts) # numeric
+tail(colnames(horizontal_df))
 
 # Try a different subset method; YAY! It worked :D
 lm(horizontal_df[,232] ~ counts, data=horizontal_df, subset=grepl('SLC25', x=horizontal_df$gene))
@@ -136,11 +140,11 @@ lm(horizontal_df[,232] ~ counts, data=horizontal_df, subset=grepl('SLC25', x=hor
 
 # Step 1: Estimate the total effect (X on Y); SLC25 genes on the 50% active pathway scores
 # The 231st column is the pathway activity scores for the citrate/TCA cycle (kegg) 
-model_direct <- lm(slc25_df[,231] ~ slc25_df$gene, data=slc25_df)
+model_direct <- lm(slc25_df[,232] ~ slc25_df$gene, data=slc25_df)
 summary(model_direct)
 
 # Step 2: Path A (X on M); Estimate the effect of SLC on biomarker
-model_mediate <- lm(subset(horizontal_df, !grepl('SLC25', x=horizontal_df$gene, ignore.case=TRUE))$count ~ subset(horizontal_df, !grepl('SLC25', x=horizontal_df$gene, ignore.case=TRUE))$count, data=horizontal_df)
+model_mediate <- lm(subset(horizontal_df, !grepl('SLC25', x=horizontal_df$gene, ignore.case=TRUE))$count ~ subset(horizontal_df, grepl('SLC25', x=horizontal_df$gene, ignore.case=TRUE))$count, data=horizontal_df)
 model_mediate
 names(model_mediate)
 model_mediate$effects
@@ -155,3 +159,52 @@ summary(model_indirect)
 # Is the mediation effect statistically significant?
 results <- mediate(model_mediate, model_indirect, treat='horizontal_df[,232]', mediator='counts', boot=TRUE, sims=500)
 
+
+############################### Mediation analysis on individual genes ################################################
+# Citrate carrier pathway
+# First, get the dataframe in the right shape
+subdf <- horizontal_df %>% split(grepl('PFKM', x=.$gene))
+head(subdf[[2]])
+
+subdf1 <- horizontal_df %>% split(grepl('\\bSLC25A1\\b', x=.$gene)) # Check the subset dfs are the same nrow
+head(subdf1[[2]])
+
+nrow(subdf[[2]])==nrow(subdf[[2]]) # TRUE
+
+# Rename the counts column in the first df so I can bind it to the second one
+colnames(subdf[[2]])[296] <- "PFKM_counts" 
+tail(subdf[[2]])
+
+# Add this column to the subdf1 column
+combo_df <- bind_rows(subdf[[2]], subdf1[[2]])
+combo_df[1:5,1:5]
+tail(combo_df)
+
+# For some reason it put NA in the PFKM counts so I am going to force write it
+combo_df$PFKM_counts <- subdf1[[2]]$counts
+tail(combo_df)
+combo_df$PFKM_counts
+
+# Rename the counts column in the first df so I can bind it to the second one
+colnames(combo_df)[299] <- "SLC25A1_counts" 
+combo_df$SLC25A1_counts
+class(combo_df)
+
+length(combo_df$PFKM_counts)==length(combo_df$SLC25A1_counts) #TRUE
+
+# Step 1: Estimate total effect (x on Y) ; citrate carrier on citrate carrier pathway   
+model_direct1 <- lm(combo_df[,232] ~ SLC25A1_counts, data=combo_df)
+model_direct1
+
+# Step 2: Path A (X on M); SLC25A1 on PFKM
+model_mediate1 <- lm(PFKM_counts ~ SLC25A1_counts, data=combo_df)
+model_mediate1
+
+# Step 3: M on X, controlling for X; pathway ~ SLC25A1 + PFKM
+# Finally, step3!
+model_indirect1 <- lm(combo_df[,232] ~ SLC25A1_counts + PFKM_counts, data=combo_df)
+model_indirect1
+
+# Is the mediation effect statistically significant?
+colnames(combo_df[,232])
+citrate_results <- mediate(model_mediate1, model_indirect1, treat="SLC25A1_counts", mediator='PFKM_counts', boot=TRUE, sims=500)
