@@ -195,16 +195,112 @@ length(combo_df$PFKM_counts)==length(combo_df$SLC25A1_counts) #TRUE
 # Step 1: Estimate total effect (x on Y) ; citrate carrier on citrate carrier pathway   
 model_direct1 <- lm(combo_df[,232] ~ SLC25A1_counts, data=combo_df)
 model_direct1
+summary(model_direct1)
 
 # Step 2: Path A (X on M); SLC25A1 on PFKM
 model_mediate1 <- lm(PFKM_counts ~ SLC25A1_counts, data=combo_df)
 model_mediate1
+summary(model_mediate1)
 
 # Step 3: M on X, controlling for X; pathway ~ SLC25A1 + PFKM
 # Finally, step3!
 model_indirect1 <- lm(combo_df[,232] ~ SLC25A1_counts + PFKM_counts, data=combo_df)
 model_indirect1
+summary(model_indirect1)
 
 # Is the mediation effect statistically significant?
-colnames(combo_df[,232])
-citrate_results <- mediate(model_mediate1, model_indirect1, treat="SLC25A1_counts", mediator='PFKM_counts', boot=TRUE, sims=500)
+citrate_results1 <- mediate(model_mediate1, model_indirect1, treat="SLC25A1_counts", mediator='PFKM_counts', boot=TRUE, sims=500)
+summary(citrate_results1)
+
+############################### Mediation analysis on individual genes ################################################
+## Voltage dependent anion channel pathway
+# Find the activity scores for the VDAC pathway 
+pathways <- colnames(act)
+pathways
+res <- str_detect(pathways, "tca")
+which(res, arr.ind=TRUE) # 231
+pathways[231]
+
+# First, get the dataframe in the right shape
+subdf <- horizontal_df %>% split(grepl('VDAC', x=.$gene)) # I can't find this gene for some reason...dropping it from mediation
+head(subdf[[2]])
+
+subdf1 <- horizontal_df %>% split(grepl('\\bSLC25A4\\b', x=.$gene)) # Check the subset dfs are the same nrow
+head(subdf1[[2]])
+
+subdf2 <- horizontal_df %>% split(grepl('\\bSLC25A5\\b', x=.$gene)) # Check the subset dfs are the same nrow
+head(subdf2[[2]])
+
+subdf3 <- horizontal_df %>% split(grepl('\\bSLC25A6\\b', x=.$gene)) # Check the subset dfs are the same nrow
+head(subdf3[[2]])
+
+subdf4 <- horizontal_df %>% split(grepl('\\bSLC25A31\\b', x=.$gene)) # Check the subset dfs are the same nrow
+head(subdf4[[2]])
+
+subdf5 <- horizontal_df %>% split(grepl('HK2', x=.$gene)) # Check the subset dfs are the same nrow
+head(subdf5[[2]])
+
+subdf6 <- horizontal_df %>% split(grepl('ND1', x=.$gene)) # Mitochondrial complex I --> I just chose one gene 
+head(subdf6[[2]])
+
+nrow(subdf[[2]])==nrow(subdf[[2]]) # TRUE
+
+# Add this column to the subdf1 column
+combo_df <- bind_rows(list(as.tibble(subdf1[[2]]), as.tibble(subdf2[[2]]), as.tibble(subdf3[[2]]), as.tibble(subdf4[[2]]), as.tibble(subdf5[[2]]), as.tibble(subdf6[[2]])))
+combo_df[1:5,1:5]
+tail(combo_df)
+colnames(combo_df)
+head(combo_df$gene)
+
+# Rename the counts column in the first df so I can bind it to the second one
+combo_df <- as.data.frame(combo_df)
+
+colnames(combo_df)[296] <- "SLC25A4_counts" 
+tail(combo_df)
+
+colnames(combo_df)[299] <- "SLC25A5_counts" 
+tail(combo_df)
+
+colnames(combo_df)[300] <- "SLC25A6_counts" 
+tail(combo_df)
+
+colnames(combo_df)[301] <- "SLC25A31_counts" 
+tail(combo_df)
+
+colnames(combo_df)[302] <- "HK2_counts" 
+tail(combo_df)
+
+colnames(combo_df)[303] <- "ND1_counts" 
+tail(combo_df)
+
+colnames(combo_df)
+
+# For some reason it put NA in the PFKM counts so I am going to force write it
+combo_df$SLC25A4_counts <- subdf1[[2]]$SLC25A4_counts
+combo_df$SLC25A5_counts <- subdf2[[2]]$SLC25A5_counts
+#combo_df$SLC25A6_counts <- subdf3[[2]]$SLC25A6_counts # replacement has 592 rows, data has 2072
+# dropping SLC25A6 as a mediatior for now...
+combo_df$SLC25A31_counts <- subdf4[[2]]$SLC25A31_counts
+combo_df$HK2_counts <- subdf5[[2]]$HK2_counts
+combo_df$ND1_counts <- subdf6[[2]]$ND1_counts
+tail(combo_df)
+
+# Step 1: Estimate total effect (x on Y) ; HK2 on the TCA cycle   
+model_direct1 <- lm(combo_df[,232] ~ SLC25A4_counts, data=combo_df)
+model_direct1
+summary(model_direct1)
+
+# Step 2: Path A (X on M); complex I on HK2 
+model_mediate1 <- lm(SLC25A4_counts ~ ND1_counts, data=combo_df)
+model_mediate1
+summary(model_mediate1)
+
+# Step 3: M on X, controlling for X; pathway ~ SLC25A4 + HK2 
+# Finally, step3!
+model_indirect1 <- lm(combo_df[,232] ~ ND1_counts + SLC25A4_counts, data=combo_df)
+model_indirect1
+summary(model_indirect1)
+
+# Is the mediation effect statistically significant?
+citrate_results <- mediate(model_mediate1, model_indirect1, treat="ND1_counts", mediator='SLC25A4_counts', boot=TRUE, sims=500)
+summary(citrate_results)
