@@ -8,6 +8,7 @@ library(tidyverse)
 library(stringr)
 library(mediation)
 library(purrr)
+library(broom)
 
 # Read in the pathways and activity scores at 50% activity
 activity <- fread("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/filtered_activity_scores_50percent.csv",sep=",")
@@ -115,6 +116,15 @@ horizontal_df[1:5,1:5]
 tail(horizontal_df)
 head(horizontal_df$gene);tail(horizontal_df$gene)
 
+# Split the dataframes by organ
+class(horizontal_df$organ) # charater
+horizontal_df$organ <- as.factor(horizontal_df$organ)
+class(horizontal_df$organ) # factor
+
+split_df <- split(horizontal_df, horizontal_df$organ) # This produces a list of dfs
+heart_df <- split_df[[1]]
+liver_df <- split_df[[2]]
+
 # Which column is the citrate pathway in the column bind df
 head(horizontal_df[,232]) # citratee.cycle..tca.cycle..kegg.
 
@@ -144,20 +154,62 @@ biomarkers <- c("SLC16A1", "SLC16A2", "HK1", "HK2", "HK3", "GPI", "PFKM", "PFKP"
 # Combine list
 genes <- c(SLC, biomarkers)
 genes
+length(genes) # 118
 
 # Function to iterate through the list of mitochondrial carriers and biomarkers
 linear_models <- function(GENE){
-    res <- lm(horizontal_df[,232] ~ counts, data=horizontal_df, subset=grepl(GENE, x=horizontal_df$gene), na.action=na.exclude)
+    res <- lm(heart_df[,232] ~ counts, data=heart_df, subset=grepl(GENE, x=heart_df$gene), na.action=na.exclude)
     return(res)
 }
-lms <- Map(linear_models, GENE=genes) 
-summs <- Map(summary, lms)
-class(summs[[1]])
+linear_models(GENE=genes)
+heart_lms <- Map(linear_models, GENE=genes) 
+#heart_summs <- Map(summary, heart_lms)
+class(heart_summs[[1]])
+heart_summs[[1]]
+length(heart_summs) # 118
+
+# Make the list of summary results into a readable table
+glance(heart_lms[[1]]) # produces a "tbl_df"     "tbl"        "data.frame"
+heart_dfs <- Map(glance, heart_lms)
+class(heart_dfs) # list of dfs
+head(heart_dfs[[1]])
+
+# Combine list of dfs into one dataframe
+heart <- bind_rows(heart_dfs)
+head(heart)
+
+# Add a column with the gene name and move it to the front
+heart$gene <- names(heart_dfs)
+heart <- heart %>% dplyr::select(gene, everything())
 
 # Write to file
-sink("/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/linear_model_summaries.txt")
-Map(print, summs)
-sink()
+write.table(heart, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/heart_linear_model_summaries.txt", sep="\t", row.names=FALSE)
+
+# Function to iterate through the list of mitochondrial carriers and biomarkers
+#It wouldn't accept a dataframe as a function parameter, so I am hard-coding the dataframe
+linear_models <- function(GENE){
+    res <- lm(liver_df[,232] ~ counts, data=liver_df, subset=grepl(GENE, x=liver_df$gene), na.action=na.exclude)
+    return(res)
+}
+linear_models(GENE=genes)
+liver_lms <- Map(linear_models, GENE=genes) 
+
+# Make the list of summary results into a readable table
+glance(liver_lms[[1]]) # produces a "tbl_df"     "tbl"        "data.frame"
+liver_dfs <- Map(glance, liver_lms)
+class(liver_dfs) # list of dfs
+head(liver_dfs[[1]])
+
+# Combine list of dfs into one dataframe
+liver <- bind_rows(liver_dfs)
+head(liver)
+
+# Add a column with the gene name and move it to the front
+liver$gene <- names(liver_dfs)
+liver <- liver %>% dplyr::select(gene, everything())
+
+# Write to file
+write.table(liver, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/liver_linear_model_summaries.txt", sep="\t", row.names=FALSE)
 
 # Tried using Map() but I am getting a weird error: Error in lm.fit(x, y, offset = offset, singular.ok = singular.ok, ...) :                                                                                    
 #  0 (non-NA) cases --> implies that one of the dependent variables has the same values as the independent variables                       
@@ -169,6 +221,31 @@ sink()
 # item 70 : "CACT"
 # item 106 : "ID3HA"
 # item  : "PGAM2"
+
+# Function to iterate through the list of mitochondrial carriers and biomarkers; add technial covariates
+linear_models_technical_covariates <- function(GENE){
+    res <- lm(liver_df[,232] ~ counts + SMRIN + SMTSISCH, data=liver_df, subset=grepl(GENE, x=liver_df$gene), na.action=na.exclude)
+    return(res)
+}
+liver_cov_lms <- Map(linear_models_technical_covariates, GENE=genes) 
+
+# Make the list of summary results into a readable table
+glance(liver_cov_lms[[1]]) # produces a "tbl_df"     "tbl"        "data.frame"
+liver_cov_dfs <- Map(glance, liver_cov_lms)
+class(liver_cov_dfs) # list of dfs
+head(liver_cov_dfs[[1]])
+
+# Combine list of dfs into one dataframe
+liver_cov <- bind_rows(liver_cov_dfs)
+head(liver_cov)
+
+# Add a column with the gene name and move it to the front
+liver_cov$gene <- names(liver_cov_dfs)
+liver_cov <- liver_cov %>% dplyr::select(gene, everything())
+
+# Write to file
+write.table(liver_cov, "/scratch/mjpete11/mitochondrial_paralogs/linear_models/data/data/liver_technical_covariates_linear_model_summaries.txt", sep="\t", row.names=FALSE)
+
 
 ############################################# Mediation analysis draft #####################################
 # Draft approach; skip adding the technical covariates
