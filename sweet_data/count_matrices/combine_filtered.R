@@ -56,6 +56,11 @@ dim(counts) #  23346 65  --> 63 samples
 colnames(counts)
 head(counts$Hugo_ID) 
 
+# Drop the index cols
+counts$index.x <- NULL
+counts$index.y <- NULL
+counts$index <- NULL
+
 # Write to file
 write.csv(counts, paste0(path, "/combined_filtered_matrix.csv"))
 
