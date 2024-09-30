@@ -20,38 +20,22 @@ path
 # Read in filtered, combined matrix 
 #_______________________________________________________________________________ 
 # Read in clinical data 
-nf_counts <- read.table("/scratch/mjpete11/mitochondrial_paralogs/sweet_data/count_matrices/filtered_non_failing_controls.csv", sep=",")
-icm_counts <- read.table("/scratch/mjpete11/mitochondrial_paralogs/sweet_data/count_matrices/filtered_ischemic_cardiomyopathy.csv", sep=",")
-dcm_counts <- read.table("/scratch/mjpete11/mitochondrial_paralogs/sweet_data/count_matrices/filtered_dilated_cardiomyopathy.csv", sep=",")
-
-# Combine into one dataframe
-head(nf_counts) 
-head(icm_counts) 
-head(dcm_counts) 
-
-# Dimensions
-dim(nf_counts) # 24148 16 --> 14
-dim(icm_counts) # 25100 15 --> 13
-dim(dcm_counts) # 25100 38 --> 36
-
-# Combine into one dataframe
-counts <- list(nf_counts, icm_counts, dcm_counts) %>% reduce(inner_join, by="V1")
+counts <- read.csv("/scratch/mjpete11/mitochondrial_paralogs/sweet_data/count_matrices/combined_filtered_matrix.csv")
 head(counts)
-dim(counts) # 24148 67 
-
-# Make the first row into the colnames
-counts[1:5,1:5]
-counts <- counts %>% row_to_names(row_number=1) 
-counts[1:5,1:5]
-dim(counts) # 24147 67 
-head(counts)
+dim(counts) # 23346 67 
 
 # Transpose matrix so I can append the covariates to control for
 counts[1:5,1:5]
-#tcounts <- t(counts)
-#tcounts[1:5,1:5]
+tcounts <- as.data.frame(t(counts))
+tcounts[1:5,1:5]
 #class(tcounts) # matrix
 lapply(counts, class)
+
+genes <- counts$Hugo_ID
+
+# Drop unneccessary rows
+tcounts <- counts[-c(1:2),]
+tcounts[1:5,1:5]
 
 # Read in sample attributes files
 metadata <- read.csv("/scratch/mjpete11/mitochondrial_paralogs/sweet_data/count_matrices/metadata.csv", sep=",")
@@ -63,11 +47,6 @@ dim(metadata) # 64 30
 tail(colnames(counts))
 head(colnames(counts))
 colnames(counts)
-
-# drop the irrelevant column names
-colnames <- colnames(counts)[-c(1,2,17,31)]
-colnames
-length(colnames) # 63
 
 # Add a column with the run IDs
 meta <- data.frame(run_ID=metadata$Run)
@@ -98,32 +77,27 @@ tail(meta)
 meta <- meta[!meta$sample_ID=="SAMN09484097",]
 dim(meta) # 63 5
 
-# Drop the irrelevant columns
-colnames(counts)
-counts <- counts[,-c(1,2,17,31)]
-colnames(counts)
-class(counts)
-dim(counts) # 24209    63
-
 # Reorder the columns (samples) in the counts df to be in the
 # same order as the samples in the organs metadata df (rows)
 # Necessary because voom() assumes the rows of the design matrix are the samples
 # and they are in the same order as the column of the counts matrix
-idx <- match(meta$sample_ID, colnames(counts))
+idx <- match(colnames(counts[,3:ncol(counts)]), meta$sample_ID)
 idx
-length(idx) # 64
-idx1 <- na.omit(idx) 
-idx1
-length(idx1) # 63
-counts <- as.data.table(counts)
+length(idx) # 63
+counts <- data.table(counts)
 class(counts)
-ordered_counts <- counts[,..idx1]
+dim(counts) # 23346 65
+# Drop index and gene name column
+counts$X <- NULL
+counts$Hugo_ID <- NULL
+counts[1:5,1:5]
+ordered_counts <- counts[,..idx]
 ordered_counts[1:5,1:5]
 class(ordered_counts) # "data.table" "data.frame"
 apply(ordered_counts, 2, class) # character
-ordered_counts <- apply(ordered_counts, 2, as.numeric)
-apply(ordered_counts, 2, class) # numeric 
-dim(ordered_counts) # 24209    63
+#ordered_counts <- apply(ordered_counts[,3:ncol(counts)], 2, as.numeric)
+#apply(ordered_counts, 2, class) # numeric 
+dim(ordered_counts) # 23346    61
 dim(meta) # 64 5
 all(meta$sample_ID==colnames(ordered_counts)) # TRUE
 
@@ -131,13 +105,14 @@ all(meta$sample_ID==colnames(ordered_counts)) # TRUE
 range(ordered_counts) # 0 923219
 apply(ordered_counts, 2, range)
 head(apply(ordered_counts, 2, range))
+apply(ordered_counts, 2, class)
 
 # weird samples: "SAMN09484136","SAMN09484137"
 
 # Make a histogram of the expression distribution after adjusting
-#png(paste0(path,"/histogram_filtered_counts.png"))
-#hist(ordered_counts, col="red")
-#dev.off()
+png(paste0(path,"/histogram_filtered_counts.png"))
+hist(ordered_counts, col="red")
+dev.off()
 
 # Check spelling of metadata variables
 colnames(meta)
@@ -180,32 +155,24 @@ voom_obj$weights[1:5,1:5]
 ordered_counts[1:5,1:6]
 
 # Make a histogram of the expression distribution after adjusting
-#png(paste0(path,"/histogram_post_voom_.png")
+png(paste0(path,"/histogram_post_voom_.png"))
 #png(paste0(path,"/histogram_post_voom_no_quantile.png"))
-#hist(voom_obj$weights, col="red")
-#dev.off()
+hist(voom_obj$weights, col="red")
+dev.off()
 
 #dim(voom_obj[["weights"]])==dim(ordered_counts[1:20,1:20]) # TRUE TRUE
 dim(voom_obj[["weights"]])==dim(ordered_counts) # TRUE TRUE
 
-print("line 181")
 # Save the logCPM and voom normalized counts into a separate df
 dat <- as.data.frame(voom_obj[["weights"]])
 class(dat)
 
-print("line 185")
 # Add column names back
 colnames(dat) <- colnames(voom_obj$E) 
 dat[1:5,1:5]
 
-print("line 189")
-# Add gene name column
-#gene_names <- organs$"gene"[1:20]
-gene_names <- nf_counts$V2 
-gene_names
-
 # Add gene name column 
-dat$Hugo_ID <- gene_names[2:length(gene_names)]
+dat$Hugo_ID <- genes
 class(dat)
 
 # Move the gene name column to the front
