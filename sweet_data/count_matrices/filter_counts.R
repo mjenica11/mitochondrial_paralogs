@@ -1,4 +1,4 @@
-# Perform combat normalization on count data
+# Filter counts after combining into one matrix
 
 # Libraries
 library(data.table)
@@ -11,36 +11,14 @@ library(dplyr)
 path <- paste0(getwd(),"/")
 path
 
-# Set the count file
-file1 <- "non_failing_controls_matrix.csv" 
-file2 <- "dilated_cardiomyopathy_matrix.csv"
-file3 <- "ischemic_cardiomyopathy_matrix.csv"
-
-# Set the metadata file
-metadata <- "metadata.csv"
-
-# Outfile
-outfile1 <- "filtered_non_failing_controls.csv"
-outfile2 <- "filtered_ischemic_cardiomyopathy.csv"
-outfile3 <- "filtered_dilated_cardiomyopathy.csv"
-
-# Read in clinical data 
-counts1 <- fread(paste0(path, file1), sep="\t")
-counts2 <- fread(paste0(path, file2), sep="\t")
-counts3 <- fread(paste0(path, file3), sep="\t")
-
-# Dimensions of the non-failing controls before filtering
-# Sample #37 didn't process (the 23rd DCM sample)
-# Skip the 37th row (i.e. 23rd DCM sample) when labeling
-dim(counts1) # 41219 15 --> 14 non failing  samples
-dim(counts2) # 41219 14 --> 13 ischemic samples
-dim(counts3) # 41219 37 --> 36 dcm samples
-counts1[1:5,1]
-counts2[1:5,1:3]
-counts3[1:5,1]
+# Read in count matrix
+counts <- read.csv(paste0(path, "/combined_filtered_matrix.csv")) 
+counts[1:5,1:5]
+counts$X <- NULL
+dim(counts) # 23346 65 
 
 # Read in metadata with batch variables
-manifest <- read.csv(paste0(path, metadata), header=TRUE, sep = ",")
+manifest <- read.csv(paste0(path, "/metadata.csv"), header=TRUE, sep = ",")
 dim(manifest) # 64 30
 head(manifest)
 
@@ -50,56 +28,30 @@ head(manifest)
 manifest <- manifest[!manifest$BioSample=="SAMN09484097",]
 dim(manifest) # 63 30
 
-# Change the column names from the run ID to the sample ID
-# This is fine because they are uninque IDs
-colnames(counts1)[2:ncol(counts1)] <- manifest$BioSample[1:14]
-colnames(counts2)[2:ncol(counts2)] <- manifest$BioSample[15:27]
-colnames(counts3)[2:ncol(counts3)] <- manifest$BioSample[28:63]
-
-# Change the first column name
-colnames(counts1)[1] <- c("Hugo_ID")
-colnames(counts2)[1] <- c("Hugo_ID")
-colnames(counts3)[1] <- c("Hugo_ID")
-
-dim(counts1)
-dim(counts2)
-dim(counts3)
-
 # Move the gene names column to the front
-counts1 <- counts1 %>% select("Hugo_ID", everything())
-counts2 <- counts2 %>% select("Hugo_ID", everything())
-counts3 <- counts3 %>% select("Hugo_ID", everything())
-counts1[1:5]
-counts2[1:5,1]
-counts3[1:5,1]
+counts <- counts %>% select("Hugo_ID", everything())
+counts[1:5,1:5]
 
-# Expression filter: Keep a gene if it has >x counts in at least 1 sample 
+# Expression filter: Keep a gene if it has >x counts in at least 10 samples
 # Skip the first column because that is just the gene name column
 expression_filter <- function(DF, thresh){
-				DAT <- DF[rowSums(DF[,2:ncol(DF)]>=thresh, na.rm=TRUE)>0, ]
+				DAT <- DF[rowSums(DF[,2:ncol(DF)]>=thresh, na.rm=TRUE)>10, ]
 				return(DAT)
 }
 
 # Apply function
-counts1_2 <- expression_filter(DF=counts1, thresh=5)
-dim(counts1_2) # 24209    15 
-
-counts2_2 <- expression_filter(DF=counts2, thresh=5)
-dim(counts2_2) #  24687    14
-
-counts3_2 <- expression_filter(DF=counts3, thresh=5)
-dim(counts3_2) # 25570    37 
+counts_2 <- expression_filter(DF=counts, thresh=5)
+dim(counts_2) # 22540 64 
+dim(counts) # 23346 64 ; dropped 806 genes 
+counts_2[1:5,1:5]
+counts[1:5,1:5]
 
 # Use another function to test if it is working...
-tmp <- counts2[rowSums(counts2[,2:ncol(counts2)]>=5, na.rm=TRUE)>0,] 
-dim(tmp) # 24147 14 
+tmp <- counts[rowSums(counts[,2:ncol(counts)]>=5, na.rm=TRUE)>0,] 
+dim(tmp) # 23346 14 
 
 # Write filtered counts to file
-write.csv(counts1_2, paste0(path,outfile1))
-
-write.csv(counts2_2, paste0(path,outfile2))
-
-write.csv(counts3_2, paste0(path,outfile3))
+write.csv(counts_2, paste0(path, "/total_filtered_counts.csv"))
 
 # Did any SLCs drop out?
 SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
@@ -114,6 +66,4 @@ SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
 		 "SLC25A48", "MTCH1", "MTCH2", "SLC25A51", "SLC25A52", "SLC25A53")
 
 # Are any genes missing?
-setdiff(SLC, counts1_2$'Hugo_ID')  # non-failing controls: SLC25A2, SLC25A31, and SLC25A47 are missing 
-setdiff(SLC, counts2_2$'Hugo_ID')  # ischemic controls: SLC25A2, SLC25A31, and SLC25A47 are missing 
-setdiff(SLC, counts3_2$'Hugo_ID')  # dilated controls: SLC25A2, SLC25A31, and SLC25A47 are missing 
+setdiff(SLC, counts_2$'Hugo_ID')  # "SLC25A2" "UCP1" "SLC25A31" "SLC25A47" 
