@@ -6,6 +6,7 @@ library(tidyverse)
 library(reshape)
 library(sva)
 library(dplyr)
+library(janitor)
 
 # Set the path
 path <- paste0(getwd(),"/")
@@ -16,17 +17,6 @@ counts <- read.csv(paste0(path, "/combined_filtered_matrix.csv"))
 counts[1:5,1:5]
 counts$X <- NULL
 dim(counts) # 23346 65 
-
-# Read in metadata with batch variables
-manifest <- read.csv(paste0(path, "/metadata.csv"), header=TRUE, sep = ",")
-dim(manifest) # 64 30
-head(manifest)
-
-# Samples to drop from metadata bc Salmon couldn't process it: 
-# RUN: SRR7426822
-# BioSample: SAMN09484097 
-manifest <- manifest[!manifest$BioSample=="SAMN09484097",]
-dim(manifest) # 63 30
 
 # Move the gene names column to the front
 counts <- counts %>% select("Hugo_ID", everything())
@@ -67,3 +57,51 @@ SLC <- c("SLC25A1", "SLC25A2", "SLC25A3", "SLC25A4", "SLC25A5", "SLC25A6",
 
 # Are any genes missing?
 setdiff(SLC, counts_2$'Hugo_ID')  # "SLC25A2" "UCP1" "SLC25A31" "SLC25A47" 
+
+# Read in metadata with batch variables
+manifest <- read.csv(paste0(path, "/metadata.csv"), header=TRUE, sep = ",")
+dim(manifest) # 64 30
+head(manifest)
+
+# Samples to drop from metadata bc Salmon couldn't process it: 
+# RUN: SRR7426822
+# BioSample: SAMN09484097 
+manifest <- manifest[!manifest$BioSample=="SAMN09484097",]
+dim(manifest) # 63 30
+
+# Keep only the relevant metadata
+manifest <- manifest[,c(2,7,14,25)]
+head(manifest)
+class(manifest)
+
+# Append the relevant metadata to the counts and write to file
+t_counts <- t(counts_2)
+t_counts[1:5,1:5]
+class(t_counts)
+t_counts <- as.data.frame(t_counts)
+
+# Make the row with the gene names the column names
+t_counts <- t_counts %>% row_to_names(row_number=1)
+
+# Make the rownames the first column
+t_counts$BioSample <- rownames(t_counts)
+t_counts <- t_counts %>% select(BioSample, everything())
+
+# Convert from character to numeric
+t_counts2 <- apply(t_counts[,2:ncol(t_counts)], 2, as.numeric) %>% as.data.frame()
+apply(t_counts2, 2, class)
+class(t_counts2)
+t_counts2[1:5,1:5]
+
+# Append the sample names back on
+t_counts2 <- cbind(t_counts2, t_counts$BioSample) 
+colnames(t_counts2)[22541] <- c("BioSample")
+t_counts2 <- t_counts2 %>% select(BioSample, everything())
+
+# Append the metadata 
+t_counts3 <- merge(t_counts2, manifest, by="BioSample")
+t_counts3[1:5,1:5]
+
+# Write filtered counts to file
+write.csv(t_counts3, paste0(path, "/total_filtered_counts_with_metadata.csv"))
+
